@@ -1,15 +1,13 @@
 #! /bin/bash
 
+#Set the working dir 
+export WORKING_DIR=path_to_repo/Cooley_Spark/
+
+
+#####################
 export SPARK_HOME=/projects/datascience/apache_spark/
-
-export WORKING_DIR=/gpfs/mira-fs1/projects/datascience/elise/Cooley_Spark/
-
 export SPARK_CONF_DIR=$WORKING_DIR/conf/
-
-
 export SPARK_LOG_DIR=$WORKING_DIR/logs/
-
-
 export SPARK_SLAVES=${SPARK_CONF_DIR}/slaves.${COBALT_JOBID}
 cp $COBALT_NODEFILE  $SPARK_SLAVES
 
