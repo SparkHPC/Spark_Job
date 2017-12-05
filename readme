@@ -1,0 +1,64 @@
+User setup
+##########
+Git clone the repo to your working directory
+
+1. cd /path_to_my_dir/Cooley_Spark
+2. Resoft using the soft_env script
+3. Edit env.sh to include any paths needed (theses may include data files or .py files you may want the jupyter notebook to access)
+4. Edit the /conf/spark-env.sh and at a minimium set 
+export SPARK_CONF_DIR=path_to_repo/Cooley_Spark/conf  
+export SPARK_LOG_DIR=path_to_repo/Cooley_Spark/logs 
+export SPARK_WORKER_DIR=path_to_repo/Cooley_Spark/workers
+ You may also set any other Spark env variables in this script by uncommenting one if the options.
+
+5. NB: Copy the spark-conf-redirect directory in your home space ($HOME). Edit the spark-env.sh in this dir so that you have             . path_to_repo/cooley_spark/conf/spark-env.sh on a separate line.
+
+###########
+You should now be set up to launch and use Spark
+1. In the Cooley_Spark repo launch Spark on a couple of nodes using the following:
+ 
+./submit-spark.sh catalyst 60 2 pubnet-debug 10
+
+This should start Spark on two nodes for 60 mins.
+The syntax here is ./submit-spark.sh <project name> <time in minutes> <number of nodes> <queue> <wait time for spark to start in minutes>
+Use either pubnet or pubnet-debug queues to use jupyter. Once it has launched you should see something like the following:
+ 
+Waiting for Spark to launch...
+Waiting for Spark to launch...
+Waiting for Spark to launch...
+Waiting for Spark to launch...
+Waiting for Spark to launch...
+Waiting for Spark to launch...
+Waiting for Spark to launch...
+Waiting for Spark to launch...
+Waiting for Spark to launch...
+Waiting for Spark to launch...
+Spark is now running with 2 conf/slaves workers:
+  STATUS: http://cc005.cooley.pub.alcf.anl.gov:8080
+  MASTER: spark://cc005:7077
+ 
+ 
+3. Use the master address to set the following on the command line
+export SPARK_STATUS_URL=http://cc005.cooley.pub.alcf.anl.gov:8080
+export SPARK_MASTER_URI=spark://cc005:7077
+
+4. Spark is now running and you have access to both the master and worker nodes and the addresses for them in cooley_spark/logs
+
+To use Jupyter notebook:
+
+1. ssh into the master node
+ ssh cc005
+ 
+2. Source env.sh which is in /path_to_repo/Cooley_Spark/ (You can edit this so any path needed is included in $PATH)
+ 
+6. Launch pyspark and include a python script
+./bin/pyspark --master $PYSPARK_MASTER_URI --py-files analysis_utils.py
+ 
+This will print something like
+ 
+[I 16:04:05.445 NotebookApp] Serving notebooks from local directory: path_to_repo/Cooley_Spark
+[I 16:04:05.446 NotebookApp] 0 active kernels 
+[I 16:04:05.446 NotebookApp] The Jupyter Notebook is running at: http://cc005.cooley.pub.alcf.anl.gov:8002/
+[I 16:04:05.446 NotebookApp] Use Control-C to stop this server and shut down all kernels (twice to skip confirmation).
+ 
+and you can cut and paste the url into a browser to start using a notebook.
