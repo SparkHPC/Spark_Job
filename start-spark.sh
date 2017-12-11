@@ -1,39 +1,47 @@
 #! /bin/bash
+set -u
 
-#Set the working dir 
-export WORKING_DIR=path_to_repo/Cooley_Spark/
+# Set the working dir (default the directory containing this script) if unset.
+[[ -z ${WORKING_DIR+X} ]] && declare -r WORKING_DIR="$(cd $(dirname "$0");pwd)"
+export WORKING_DIR
+source "$WORKING_DIR/setup.sh"
+export SPARK_SLAVES="${SPARK_CONF_DIR}/slaves.${COBALT_JOBID}"
 
+ssh(){	# Intercept ssh call to pass more envs.  Requires spark using bash.
+	local -ar as=("$@"); local -i i
+	echo "EXE@$(hostname -f): ssh";for ((i=0;i<$#;++i));do echo "	$i: '${as[i]}'";done
+	local -a os cs
+	while [[ $1 == -* ]];do
+		os+=("$1" "$2")
+		shift 2
+	done
+	local -r h="$1";shift
+	local -ar cs=("$@")
+	/usr/bin/ssh "${os[@]}" "$h" \
+		export "WORKING_DIR='$WORKING_DIR'" \; \
+		source "'$WORKING_DIR/setup.sh'" \; \
+		"${cs[@]}"
+	local -ir st=$?
+	if ((st==0)) && [[ $h == $(hostname).* ]];then
+		[[ -d $WORKING_DIR/run ]] || mkdir -p "$WORKING_DIR/run"
+	{
+		declare -p | grep SPARK
+		echo "declare -x SPARK_MASTER_URI=${cs[${#cs[@]}-1]}"
+	} > "$WORKING_DIR/run/control.$COBALT_JOBID"
+	fi
+	return $st
+}
+export -f ssh
 
-#####################
-export SPARK_HOME=/projects/datascience/apache_spark/
-export SPARK_CONF_DIR=$WORKING_DIR/conf/
-export SPARK_LOG_DIR=$WORKING_DIR/logs/
-export SPARK_SLAVES=${SPARK_CONF_DIR}/slaves.${COBALT_JOBID}
-cp $COBALT_NODEFILE  $SPARK_SLAVES
+cp "$COBALT_NODEFILE" "$SPARK_SLAVES"
 
-pushd $SPARK_HOME
-echo "Spark Slaves File ${SPARK_SLAVES}" > $HOME/spark-hostname.${COBALT_JOBID}
+$SPARK_HOME/sbin/start-all.sh
 
-./sbin/start-all.sh
-
-NODES=`wc -l ${SPARK_SLAVES} | cut -d" " -f1`
-popd
-
-MASTER=`hostname`
-
-
-h=`hostname`
-num_workers=`wc -l ${SPARK_SLAVES}`
-echo "Port $SPARK_MASTER_PORT $SPARK_MASTER_WEBUI_PORT" >> $HOME/spark-hostname.${COBALT_JOBID}
-echo "Spark is now running with $num_workers workers:" >> $HOME/spark-hostname.${COBALT_JOBID}
-echo "  STATUS: http://$h.cooley.pub.alcf.anl.gov:8080" >> $HOME/spark-hostname.${COBALT_JOBID}
-echo "  MASTER: spark://$h:7077" >> $HOME/spark-hostname.${COBALT_JOBID}
-
-export SPARK_STATUS_URL=http://$h.cooley.pub.alcf.anl.gov:8080
-export SPARK_MASTER_URI=spark://$h:7077
-
-#keep non-interactive job running
-while true
-do
-  sleep 5
-done
+if (($#>0));then	# Assuming non-interative jobs
+	source "$WORKING_DIR/setup.sh" $COBALT_JOBID
+	export PYSPARK_DRIVER_PYTHON="$PYSPARK_PYTHON"
+	export PYSPARK_DRIVER_PYTHON_OPTS=""
+	"$SPARK_HOME/bin/spark-submit" --master $SPARK_MASTER_URI "$@"
+else	#keep non-interactive job running
+	while true;do sleep 5;done
+fi

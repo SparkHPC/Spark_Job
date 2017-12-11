@@ -1,43 +1,69 @@
 #! /bin/bash
+set -u
 
+# Set the working dir (default the directory containing this script) if unset.
+# WORKING_DIR is passed to the job via qsub.
+[[ -z ${WORKING_DIR+X} ]] && declare -r WORKING_DIR="$(cd $(dirname "$0");pwd)"
+export WORKING_DIR
 
-
-if [ $# -lt 5 ]; then
-    echo "Usage: submit-spark.sh <allocation> <time> <num_nodes> <queue> <waittime>"
-    echo "Example: submit-spark.sh SDAV 08:00:00 12 pubnet-nox11 10"
-    exit -1
+if (($#<5)); then
+	echo 'Usage:'
+	echo '	Non-interactive:'
+	echo '	submit-spark.sh <allocation> <time> <num_nodes> <queue> <pyscript> [args ...]'
+	echo '	Interactive:'
+	echo '	submit-spark.sh <allocation> <time> <num_nodes> <queue> <waittime/min>'
+	echo 'Example:'
+	echo '	./submit-spark.sh datascience 60 2 pubnet-debug 10'
+	echo '	./submit-spark.sh datascience 60 2 debug $SPARK_HOME/examples/src/main/python/pi.py 10000'
+	exit -1
 fi
 
 allocation=$1
 time=$2
 nodes=$3
 queue=$4
+shift 4
 
-x=60; y=10
+if [[ -s $1 ]];then
+	echo "Submitting a non-interactive job: $@"
+	interactive=0
+else
+	echo "Submitting an interactive job and wait for at most $1 min."
+	interactive=1
+	((waittime=$1*60))
+fi
 
-waittime=$(($5*$((x/y))))
+[[ -d $WORKING_DIR/run ]] || mkdir -p "$WORKING_DIR/run"
 
-# trap ctrl-c and call ctrl_c()
-trap ctrl_c INT
+opt=(--env "WORKING_DIR=$WORKING_DIR")
+opt+=(-O "$WORKING_DIR/run/\$jobid")
 
-function ctrl_c() {
-        echo "**Removing Cobalt job..."
-	qdel $JOBID
-	break
-}
+js="$WORKING_DIR/start-spark.sh"
 
-
-# submit
-JOBID=`qsub -n $nodes -t $time -A $allocation -q ${queue} start-spark.sh`
-count=0
-while [ ! -e $HOME/spark-hostname.$JOBID ]; do 
-  echo "Waiting for Spark to launch..."; sleep $y
-  count=$((count+1))
-  if [ $count -gt $waittime ]
-  then
-    echo "Spark failed to launch within $waittime minutes."
-    break
-  fi
-done
-
-
+declare -i JOBID=0
+if ((interactive>0));then
+	declare -i QDEL=1
+	cleanup(){ ((QDEL>0 && JOBID>0)) && qdel $JOBID; } 
+	trap cleanup 0
+	JOBID=$(qsub -n $nodes -t $time -A $allocation -q ${queue} "${opt[@]}" "$js")
+	declare -i mywait=10 count=0
+	echo "Waiting for Spark to launch..."
+	for ((count=0;count<waittime;count+=mywait));do
+		if [[ -s $WORKING_DIR/run/control.$JOBID ]];then
+			QDEL=0
+			break
+		fi
+		sleep $mywait
+	done
+	if [[ -s $WORKING_DIR/run/control.$JOBID ]];then
+		source "$WORKING_DIR/run/control.$JOBID"
+		echo "# Spark is now running (JOBID=$JOBID) on:"
+		sed 's/^/# /' "$SPARK_SLAVES"
+		declare -p SPARK_MASTER_URI
+	else
+		echo "Spark failed to launch within $((waittime/60)) minutes."
+	fi
+else
+	JOBID=$(qsub -n $nodes -t $time -A $allocation -q ${queue} "${opt[@]}" "$js" "$@")
+	echo "Submitted jobid: $JOBID"
+fi
