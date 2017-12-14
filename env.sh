@@ -1,7 +1,9 @@
-export ANACONDA=/soft/interpreters/python/anaconda/anaconda3/
-export PYSPARK_DRIVER_PYTHON=jupyter
+export SPARK_HOME=/projects/datascience/apache_spark
+export SPARK_WORKER_DIR="$WORKING_DIR/workers"
+export SPARK_CONF_DIR="$WORKING_DIR/conf"
+export SPARK_LOG_DIR="$WORKING_DIR/logs"
+export ANACONDA=/soft/interpreters/python/anaconda/anaconda3
 export PYTHONPATH=$ANACONDA/4.0.0/bin/python
-export PYSPARK_PYTHON=$ANACONDA/4.0.0/bin/python
-export PYSPARK_DRIVER_PYTHON_OPTS="notebook --no-browser --ip=$(hostname).cooley.pub.alcf.anl.gov --port=8002" pyspark
-export PYSPARK_MASTER_URI=spark://$(hostname):7077
-#export PATH=path_to_add:$PATH
+export PYSPARK_PYTHON=$PYTHONPATH
+export PYSPARK_DRIVER_PYTHON=jupyter
+export PYSPARK_DRIVER_PYTHON_OPTS="notebook --no-browser --ip=$(hostname).cooley.pub.alcf.anl.gov --port=8002"
