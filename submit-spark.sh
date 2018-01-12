@@ -1,11 +1,11 @@
 #! /bin/bash
 set -u
 
-# Set the working dir (default the directory containing this script) if unset.
-# WORKING_DIR is passed to the job via qsub.
-[[ -z ${WORKING_DIR+X} ]] && declare -r WORKING_DIR="$(cd $(dirname "$0");pwd)"
-export WORKING_DIR
-
+# Set the directory containing our scripts if unset.
+# SCRIPTS_DIR is passed to the job via qsub.
+[[ -z ${SCRIPTS_DIR+X} ]] && declare -r SCRIPTS_DIR="$(cd $(dirname "$0");pwd)"
+export SCRIPTS_DIR
+ 
 if (($#<5)); then
 	echo 'Usage:'
 	echo '	Non-interactive:'
@@ -33,37 +33,53 @@ else
 	((waittime=$1*60))
 fi
 
-[[ -d $WORKING_DIR/run ]] || mkdir -p "$WORKING_DIR/run"
+# Options to pass to qsub
+opt=(--env "SCRIPTS_DIR=$SCRIPTS_DIR")
+opt+=(-O "$SCRIPTS_DIR/work/\$jobid")
 
-opt=(--env "WORKING_DIR=$WORKING_DIR")
-opt+=(-O "$WORKING_DIR/run/\$jobid")
+[[ -d $SCRIPTS_DIR/work ]] || mkdir "$SCRIPTS_DIR/work"
 
-js="$WORKING_DIR/start-spark.sh"
+js="$SCRIPTS_DIR/start-spark.sh"
 
 declare -i JOBID=0
 if ((interactive>0));then
-	declare -i QDEL=1
-	cleanup(){ ((QDEL>0 && JOBID>0)) && qdel $JOBID; } 
+	cleanup(){ ((JOBID>0)) && qdel $JOBID; } 
 	trap cleanup 0
 	JOBID=$(qsub -n $nodes -t $time -A $allocation -q ${queue} "${opt[@]}" "$js")
+	if ((JOBID > 0));then
+		echo "Submitted JOBID=$JOBID"
+	else
+		echo "Submitting failed."
+		exit 1
+	fi
+	declare -r envs="$SCRIPTS_DIR/work/$JOBID/envs"
+	declare -r slaves="$SCRIPTS_DIR/work/$JOBID/conf/slaves"
 	declare -i mywait=10 count=0
 	echo "Waiting for Spark to launch..."
 	for ((count=0;count<waittime;count+=mywait));do
-		if [[ -s $WORKING_DIR/run/control.$JOBID ]];then
-			QDEL=0
-			break
-		fi
+		[[ ! -s $envs ]] || break
 		sleep $mywait
 	done
-	if [[ -s $WORKING_DIR/run/control.$JOBID ]];then
-		source "$WORKING_DIR/run/control.$JOBID"
+	if [[ -s $envs ]];then
+		source "$envs"
 		echo "# Spark is now running (JOBID=$JOBID) on:"
-		sed 's/^/# /' "$SPARK_SLAVES"
+		column "$slaves" | sed 's/^/# /'
 		declare -p SPARK_MASTER_URI
+		echo "# Entering host: $MASTER_HOST"
+		ssh -t $MASTER_HOST \
+			"bash -c \
+			'export JOBID=$JOBID; \
+			source \"$SCRIPTS_DIR/setup.sh\"; \
+			exec $SHELL -l'"
 	else
 		echo "Spark failed to launch within $((waittime/60)) minutes."
 	fi
 else
 	JOBID=$(qsub -n $nodes -t $time -A $allocation -q ${queue} "${opt[@]}" "$js" "$@")
-	echo "Submitted jobid: $JOBID"
+	if ((JOBID > 0));then
+		echo "Submitted JOBID=$JOBID"
+	else
+		echo "Submitting failed."
+		exit 1
+	fi
 fi

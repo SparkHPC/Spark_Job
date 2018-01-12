@@ -1,5 +1,3 @@
 conf/slaves.*
-logs/spark-*
 soft_env.cache.*
-workers/app-*/
-run/
+work/

@@ -43,18 +43,12 @@ Use either pubnet or pubnet-debug queues to use jupyter. Once it has launched yo
 	# cc013.cooley
 	# cc001.cooley
 	declare -x SPARK_MASTER_URI="spark://cc013.fst.alcf.anl.gov:7077"
+	# Entering host: cc013
 
-You can connect to the master using the SPARK_MASTER_URI printed above.
+You will be dropped in the host cc013, and the job will be automatically
+deleted upon exiting the host.
 
-To use Jupyter notebook:
-
-1. ssh into the master node from SPARK_MASTER_URI:
-	$ ssh cc013
-2. Setup the envirenment, the JOBID is the one printed out from submit-spark.sh:
-	$ source PATH_TO_THE_GIT_CLONE/setup.sh <JOBID>
-    In this example, it is:
-	$ source PATH_TO_THE_GIT_CLONE/setup.sh 1335159
-3. Launch pyspark and include a python script
+To use Jupyter notebook, launch pyspark and include a python script
 	$ $SPARK_HOME/bin/pyspark --master $SPARK_MASTER_URI --py-files analysis_utils.py
 
 This will print something like

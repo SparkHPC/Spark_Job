@@ -1,12 +1,24 @@
-# Set the working dir (default the directory containing this script) if unset.
-[[ -z ${WORKING_DIR+X} ]] \
-	&& declare -r WORKING_DIR="$(cd $(dirname "$BASH_SOURCE");pwd)"
-export WORKING_DIR
+# Set the scripts dir if unset.
+[[ -z ${SCRIPTS_DIR+X} ]] \
+	&& declare -r SCRIPTS_DIR="$(cd $(dirname "$BASH_SOURCE");pwd)"
+export SCRIPTS_DIR
 
-[[ $WORKING_DIR/soft_env.cache.sh -ot $WORKING_DIR/soft_env ]] \
-	&& HOME='' /soft/environment/softenv-1.6.2/bin/soft-msc "$WORKING_DIR/soft_env"
-source "$WORKING_DIR/soft_env.cache.sh"
-source "$WORKING_DIR/env.sh"
+[[ $SCRIPTS_DIR/soft_env.cache.sh -ot $SCRIPTS_DIR/soft_env ]] \
+	&& HOME='' /soft/environment/softenv-1.6.2/bin/soft-msc "$SCRIPTS_DIR/soft_env"
+source "$SCRIPTS_DIR/soft_env.cache.sh"
 
-(($#>0)) && [[ -s $WORKING_DIR/run/control.$1 ]] \
-	&& source "$WORKING_DIR/run/control.$1"
+# Set the working dir if unset, requires JOBID
+if [[ -z ${WORKING_DIR+X} ]];then
+	if [[ -z ${JOBID+X} ]];then
+		echo "Error: JOBID required for setup.sh"
+		exit 1
+	else
+		export WORKING_DIR="$SCRIPTS_DIR/work/$JOBID"
+	fi
+fi
+
+source "$SCRIPTS_DIR/env.sh"
+
+# Allow WORKING_ENVS to overwrite preset env.sh
+export WORKING_ENVS="$WORKING_DIR/envs"
+[[ -s $WORKING_ENVS ]] && source "$WORKING_ENVS"

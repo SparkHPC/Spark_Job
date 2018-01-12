@@ -1,11 +1,18 @@
 #! /bin/bash
 set -u
 
-# Set the working dir (default the directory containing this script) if unset.
-[[ -z ${WORKING_DIR+X} ]] && declare -r WORKING_DIR="$(cd $(dirname "$0");pwd)"
-export WORKING_DIR
-source "$WORKING_DIR/setup.sh"
-export SPARK_SLAVES="${SPARK_CONF_DIR}/slaves.${COBALT_JOBID}"
+export JOBID=$COBALT_JOBID    # Change it for other job system
+
+# Set the directory containing our scripts if unset.
+# SCRIPTS_DIR is passed to the job via qsub.
+[[ -z ${SCRIPTS_DIR+X} ]] && declare -r SCRIPTS_DIR="$(cd $(dirname "$0");pwd)"
+export SCRIPTS_DIR
+
+source "$SCRIPTS_DIR/setup.sh"
+
+[[ -d $SPARK_WORKER_DIR ]] || mkdir -p "$SPARK_WORKER_DIR"
+[[ -d $SPARK_CONF_DIR ]] || mkdir -p "$SPARK_CONF_DIR"
+[[ -d $SPARK_LOG_DIR ]] || mkdir -p "$SPARK_LOG_DIR"
 
 ssh(){	# Intercept ssh call to pass more envs.  Requires spark using bash.
 	local -ar as=("$@"); local -i i
@@ -18,27 +25,28 @@ ssh(){	# Intercept ssh call to pass more envs.  Requires spark using bash.
 	local -r h="$1";shift
 	local -ar cs=("$@")
 	/usr/bin/ssh "${os[@]}" "$h" \
+		export "SCRIPTS_DIR='$SCRIPTS_DIR'" \; \
 		export "WORKING_DIR='$WORKING_DIR'" \; \
-		source "'$WORKING_DIR/setup.sh'" \; \
+		source "'$SCRIPTS_DIR/setup.sh'" \; \
 		"${cs[@]}"
 	local -ir st=$?
 	if ((st==0)) && [[ $h == $(hostname).* ]];then
-		[[ -d $WORKING_DIR/run ]] || mkdir -p "$WORKING_DIR/run"
 	{
 		declare -p | grep SPARK
 		echo "declare -x SPARK_MASTER_URI=${cs[${#cs[@]}-1]}"
-	} > "$WORKING_DIR/run/control.$COBALT_JOBID"
+		echo "declare -x MASTER_HOST=$(hostname)"
+	} > "$WORKING_ENVS"
 	fi
 	return $st
 }
 export -f ssh
 
-cp "$COBALT_NODEFILE" "$SPARK_SLAVES"
+cp "$COBALT_NODEFILE" "$SPARK_CONF_DIR/slaves"
 
 $SPARK_HOME/sbin/start-all.sh
 
 if (($#>0));then	# Assuming non-interative jobs
-	source "$WORKING_DIR/setup.sh" $COBALT_JOBID
+	source "$SCRIPTS_DIR/setup.sh"
 	export PYSPARK_DRIVER_PYTHON="$PYSPARK_PYTHON"
 	export PYSPARK_DRIVER_PYTHON_OPTS=""
 	"$SPARK_HOME/bin/spark-submit" --master $SPARK_MASTER_URI "$@"
