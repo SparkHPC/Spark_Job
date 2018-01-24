@@ -65,12 +65,15 @@ if ((interactive>0));then
 		echo "# Spark is now running (JOBID=$JOBID) on:"
 		column "$slaves" | sed 's/^/# /'
 		declare -p SPARK_MASTER_URI
-		echo "# Entering host: $MASTER_HOST"
+		echo "# Spawning bash on host: $MASTER_HOST"
 		ssh -t $MASTER_HOST \
-			"bash -c \
-			'export JOBID=$JOBID; \
-			source \"$SCRIPTS_DIR/setup.sh\"; \
-			exec $SHELL -l'"
+			"bash -lic \" \
+			export JOBID=$JOBID; \
+			exec bash --rcfile <(echo ' \
+				source ~/.bashrc; \
+				source \"$SCRIPTS_DIR/setup.sh\" \
+			')\" \
+			"
 	else
 		echo "Spark failed to launch within $((waittime/60)) minutes."
 	fi
