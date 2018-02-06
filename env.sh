@@ -1,4 +1,4 @@
-export SPARK_HOME=/projects/datascience/apache_spark
+export SPARK_HOME=/soft/datascience/apache_spark
 export SPARK_WORKER_DIR="$WORKING_DIR/workers"
 export SPARK_CONF_DIR="$WORKING_DIR/conf"
 export SPARK_LOG_DIR="$WORKING_DIR/logs"
