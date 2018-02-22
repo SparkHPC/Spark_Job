@@ -1,16 +1,16 @@
 #! /bin/bash
 set -u
 
-declare -r SPARKJOB_JOBID=$COBALT_JOBID    # Change it for other job system
+export SPARKJOB_JOBID=$COBALT_JOBID    # Change it for other job system
 
 # Set the directory containing our scripts if unset.
 # SPARKJOB_SCRIPTS_DIR is passed to the job via qsub.
 [[ -z ${SPARKJOB_SCRIPTS_DIR+X} ]] &&
-	declare -r SPARKJOB_SCRIPTS_DIR="$(cd $(dirname "$0")&&pwd)"
+	declare SPARKJOB_SCRIPTS_DIR="$(cd $(dirname "$0")&&pwd)"
 export SPARKJOB_SCRIPTS_DIR
-[[ -z ${SPARKJOB_PYVERSION+X} ]] && declare -ri SPARKJOB_PYVERSION=3
+[[ -z ${SPARKJOB_PYVERSION+X} ]] && declare -i SPARKJOB_PYVERSION=3
 export SPARKJOB_PYVERSION
-[[ -z ${SPARKJOB_INTERACTIVE+X} ]] && declare -ri SPARKJOB_INTERACTIVE=0
+[[ -z ${SPARKJOB_INTERACTIVE+X} ]] && declare -i SPARKJOB_INTERACTIVE=0
 export SPARKJOB_INTERACTIVE
 
 source "$SPARKJOB_SCRIPTS_DIR/setup.sh"
