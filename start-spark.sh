@@ -7,6 +7,11 @@ declare -r SPARKJOB_JOBID=$COBALT_JOBID    # Change it for other job system
 # SPARKJOB_SCRIPTS_DIR is passed to the job via qsub.
 [[ -z ${SPARKJOB_SCRIPTS_DIR+X} ]] &&
 	declare -r SPARKJOB_SCRIPTS_DIR="$(cd $(dirname "$0")&&pwd)"
+export SPARKJOB_SCRIPTS_DIR
+[[ -z ${SPARKJOB_PYVERSION+X} ]] && declare -ri SPARKJOB_PYVERSION=3
+export SPARKJOB_PYVERSION
+[[ -z ${SPARKJOB_INTERACTIVE+X} ]] && declare -ri SPARKJOB_INTERACTIVE=0
+export SPARKJOB_INTERACTIVE
 
 source "$SPARKJOB_SCRIPTS_DIR/setup.sh"
 
@@ -15,8 +20,7 @@ source "$SPARKJOB_SCRIPTS_DIR/setup.sh"
 [[ -d $SPARK_LOG_DIR ]] || mkdir -p "$SPARK_LOG_DIR"
 
 ssh(){	# Intercept ssh call to pass more envs.  Requires spark using bash.
-	local -ar as=("$@"); local -i i
-	echo "EXE@$(hostname -f): ssh";for ((i=0;i<$#;++i));do echo "	$i: '${as[i]}'";done
+	# This is a exported function.  Any global variables used here should be exported.
 	local -a os cs
 	while [[ $1 == -* ]];do
 		os+=("$1" "$2")

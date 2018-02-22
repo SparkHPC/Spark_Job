@@ -15,9 +15,7 @@ if ((SPARKJOB_PYVERSION==2));then
 elif ((SPARKJOB_PYVERSION==3));then
 	export ANACONDA=/soft/interpreters/python/anaconda/anaconda3
 	export PYTHONPATH="$ANACONDA/4.0.0/bin/python"
-else
-	# You are on your own.
-fi
+fi	# else you are on your own.
 
 export PATH="$ANACONDA/bin:$PATH"
 export PYSPARK_PYTHON=$PYTHONPATH

@@ -28,7 +28,7 @@ Example:
 '
 
 while getopts IA:t:n:q:w:p: OPT; do
-	case OPT in
+	case $OPT in
 	I)	declare -ir	interactive=1;;
 	A)	declare -r	allocation="$OPTARG";;
 	t)	declare -r	time="$OPTARG";;
@@ -37,12 +37,18 @@ while getopts IA:t:n:q:w:p: OPT; do
 	w)	declare -ir	waittime=$((OPTARG*60));;
 	p)	declare -ir	pyversion=$OPTARG;;
 	?)	echo "$usage"; exit 1;;
+	esac
 done
 
 [[ -z ${waittime+X} ]] && declare -ir waittime=$((30*60))
 [[ -z ${pyversion+X} ]] && declare -ir pyversion=3
 
-if ((pyversion != 2 || pyversion != 3));then
+if [[ -z ${allocation+X} || -z ${time+X} || -z ${nodes+X} || -z ${queue+X} ]];then
+	echo "$usage"
+	exit 1
+fi
+
+if ((pyversion != 2 && pyversion != 3));then
 	echo "Preconfigured Python version can only be 2 or 3,"
 	echo "but got $pyversion."
 	echo "Using your custom python version."
@@ -51,9 +57,13 @@ fi
 
 shift $((OPTIND-1))
 
+declare -a scripts=()
+
 if (($#>0));then
 	if [[ -s $1 ]];then
-		echo "Submitting job: $@"
+		[[ -z ${interactive+X} ]] && declare -ir interactive=0
+		scripts=( "$@" )
+		echo "# Submitting job: ${scripts[@]}"
 	else
 		echo "File does not exist: $1"
 		exit 1
@@ -70,12 +80,12 @@ mysubmit() {
 	# Options to pass to qsub
 	local -ar opt=(
 		-n $nodes -t $time -A $allocation -q $queue
-		--env "SPARKJOB_SCRIPTS_DIR='$SCRIPTS_DIR'"
-		--env "SPARKJOB_PYVERSION='$pyversion'"
-		--env "SPARKJOB_INTERACTIVE='$interactive'"
+		--env "SPARKJOB_SCRIPTS_DIR=$SCRIPTS_DIR"
+		--env "SPARKJOB_PYVERSION=$pyversion"
+		--env "SPARKJOB_INTERACTIVE=$interactive"
 		-O "$SCRIPTS_DIR/work/\$jobid"
 		"$SCRIPTS_DIR/start-spark.sh"
-		"$@"
+		"${scripts[@]}"
 	)
 	JOBID=$(qsub "${opt[@]}")
 	if ((JOBID > 0));then
