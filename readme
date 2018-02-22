@@ -1,9 +1,9 @@
 QUICK START
 
-On a cooley login node, run the following:
-	$ git clone git@xgitlab.cels.anl.gov:datascience/Cooley_Spark.git
-	$ Cooley_Spark/submit-spark.sh datascience 60 2 debug \
-		/projects/datascience/apache_spark/examples/src/main/python/pi.py \
+On a cooley login node, under your desired directory, run the following:
+	$ cp -a /soft/datascience/Cooley_Spark ./
+	$ ./Cooley_Spark/submit-spark.sh datascience 60 2 debug \
+		/soft/datascience/apache_spark/examples/src/main/python/pi.py \
 		10000
 The result output will be under directory Cooley_Spark/run.
 
@@ -62,7 +62,7 @@ and you can cut and paste the url into a browser to start using a notebook.
 
 Non-interactive example:
 	$ ./submit-spark.sh datascience 60 2 debug \
-		/projects/datascience/apache_spark/examples/src/main/python/pi.py \
+		/soft/datascience/apache_spark/examples/src/main/python/pi.py \
 		10000
 
 This should start Spark on two nodes for 60 mins, and submit the script
@@ -70,7 +70,7 @@ pi.py to spark master with the argument 10000.  Either the default or
 the debug queue works.  This script will return immediately after qsub
 returns, and you should see something like the following:
 
-	Submitting a non-interactive job: /projects/datascience/apache_spark/examples/src/main/python/pi.py 10000
+	Submitting a non-interactive job: /soft/datascience/apache_spark/examples/src/main/python/pi.py 10000
 	Submitted jobid: 1335180
 
 Once the queued job finishes, you can find the output of the python

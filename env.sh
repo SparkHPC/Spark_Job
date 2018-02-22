@@ -1,5 +1,5 @@
 # SPARK
-export SPARK_HOME=/projects/datascience/apache_spark
+export SPARK_HOME=/soft/datascience/apache_spark
 export SPARK_WORKER_DIR="$SPARKJOB_WORKING_DIR/workers"
 export SPARK_CONF_DIR="$SPARKJOB_WORKING_DIR/conf"
 export SPARK_LOG_DIR="$SPARKJOB_WORKING_DIR/logs"
