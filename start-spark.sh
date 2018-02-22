@@ -1,14 +1,14 @@
 #! /bin/bash
 set -u
 
-export JOBID=$COBALT_JOBID    # Change it for other job system
+declare -r SPARKJOB_JOBID=$COBALT_JOBID    # Change it for other job system
 
 # Set the directory containing our scripts if unset.
-# SCRIPTS_DIR is passed to the job via qsub.
-[[ -z ${SCRIPTS_DIR+X} ]] && declare -r SCRIPTS_DIR="$(cd $(dirname "$0");pwd)"
-export SCRIPTS_DIR
+# SPARKJOB_SCRIPTS_DIR is passed to the job via qsub.
+[[ -z ${SPARKJOB_SCRIPTS_DIR+X} ]] &&
+	declare -r SPARKJOB_SCRIPTS_DIR="$(cd $(dirname "$0")&&pwd)"
 
-source "$SCRIPTS_DIR/setup.sh"
+source "$SPARKJOB_SCRIPTS_DIR/setup.sh"
 
 [[ -d $SPARK_WORKER_DIR ]] || mkdir -p "$SPARK_WORKER_DIR"
 [[ -d $SPARK_CONF_DIR ]] || mkdir -p "$SPARK_CONF_DIR"
@@ -25,17 +25,19 @@ ssh(){	# Intercept ssh call to pass more envs.  Requires spark using bash.
 	local -r h="$1";shift
 	local -ar cs=("$@")
 	/usr/bin/ssh "${os[@]}" "$h" \
-		export "SCRIPTS_DIR='$SCRIPTS_DIR'" \; \
-		export "WORKING_DIR='$WORKING_DIR'" \; \
-		source "'$SCRIPTS_DIR/setup.sh'" \; \
+		"SPARKJOB_SCRIPTS_DIR='$SPARKJOB_SCRIPTS_DIR'" \; \
+		"SPARKJOB_WORKING_DIR='$SPARKJOB_WORKING_DIR'" \; \
+		"SPARKJOB_PYVERSION='$SPARKJOB_PYVERSION'" \; \
+		"SPARKJOB_INTERACTIVE='$SPARKJOB_INTERACTIVE'" \; \
+		source "'$SPARKJOB_SCRIPTS_DIR/setup.sh'" \; \
 		"${cs[@]}"
 	local -ir st=$?
 	if ((st==0)) && [[ $h == $(hostname).* ]];then
 	{
-		declare -p | grep SPARK
+		declare -p | grep SPARK	# Get SPARK related envs.
 		echo "declare -x SPARK_MASTER_URI=${cs[${#cs[@]}-1]}"
 		echo "declare -x MASTER_HOST=$(hostname)"
-	} > "$WORKING_ENVS"
+	} > "$SPARKJOB_WORKING_ENVS"
 	fi
 	return $st
 }
@@ -45,11 +47,13 @@ cp "$COBALT_NODEFILE" "$SPARK_CONF_DIR/slaves"
 
 $SPARK_HOME/sbin/start-all.sh
 
-if (($#>0));then	# Assuming non-interative jobs
-	source "$SCRIPTS_DIR/setup.sh"
+if (($#>0));then	# For non-interative pyspark jobs
+	source "$SPARKJOB_SCRIPTS_DIR/setup.sh"
 	export PYSPARK_DRIVER_PYTHON="$PYSPARK_PYTHON"
 	export PYSPARK_DRIVER_PYTHON_OPTS=""
 	"$SPARK_HOME/bin/spark-submit" --master $SPARK_MASTER_URI "$@"
-else	#keep non-interactive job running
-	while true;do sleep 5;done
+fi
+
+if ((SPARKJOB_INTERACTIVE>0));then	# Keep interactive jobs running
+	while true;do sleep 15;done
 fi

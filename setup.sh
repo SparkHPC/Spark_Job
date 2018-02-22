@@ -1,24 +1,19 @@
 # Set the scripts dir if unset.
-[[ -z ${SCRIPTS_DIR+X} ]] \
-	&& declare -r SCRIPTS_DIR="$(cd $(dirname "$BASH_SOURCE");pwd)"
-export SCRIPTS_DIR
-
-[[ $SCRIPTS_DIR/soft_env.cache.sh -ot $SCRIPTS_DIR/soft_env ]] \
-	&& HOME='' /soft/environment/softenv-1.6.2/bin/soft-msc "$SCRIPTS_DIR/soft_env"
-source "$SCRIPTS_DIR/soft_env.cache.sh"
+[[ -z ${SPARKJOB_SCRIPTS_DIR+X} ]] \
+	&& declare -r SPARKJOB_SCRIPTS_DIR="$(cd $(dirname "$BASH_SOURCE")&&pwd)"
 
 # Set the working dir if unset, requires JOBID
-if [[ -z ${WORKING_DIR+X} ]];then
-	if [[ -z ${JOBID+X} ]];then
-		echo "Error: JOBID required for setup.sh"
+if [[ -z ${SPARKJOB_WORKING_DIR+X} ]];then
+	if [[ -z ${SPARKJOB_JOBID+X} ]];then
+		echo "Error: SPARKJOB_JOBID required for setup.sh"
 		exit 1
 	else
-		export WORKING_DIR="$SCRIPTS_DIR/work/$JOBID"
+		declare -r SPARKJOB_WORKING_DIR="$SPARKJOB_SCRIPTS_DIR/work/$SPARKJOB_JOBID"
 	fi
 fi
 
-source "$SCRIPTS_DIR/env.sh"
+source "$SPARKJOB_SCRIPTS_DIR/env.sh"
 
-# Allow WORKING_ENVS to overwrite preset env.sh
-export WORKING_ENVS="$WORKING_DIR/envs"
-[[ -s $WORKING_ENVS ]] && source "$WORKING_ENVS"
+# Allow SPARKJOB_WORKING_ENVS to overwrite preset env.sh
+SPARKJOB_WORKING_ENVS="$SPARKJOB_WORKING_DIR/envs"
+[[ -s $SPARKJOB_WORKING_ENVS ]] && source "$SPARKJOB_WORKING_ENVS"

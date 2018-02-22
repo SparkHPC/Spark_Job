@@ -1,18 +1,28 @@
+# SPARK
 export SPARK_HOME=/projects/datascience/apache_spark
-export SPARK_WORKER_DIR="$WORKING_DIR/workers"
-export SPARK_CONF_DIR="$WORKING_DIR/conf"
-export SPARK_LOG_DIR="$WORKING_DIR/logs"
+export SPARK_WORKER_DIR="$SPARKJOB_WORKING_DIR/workers"
+export SPARK_CONF_DIR="$SPARKJOB_WORKING_DIR/conf"
+export SPARK_LOG_DIR="$SPARKJOB_WORKING_DIR/logs"
 
-# python 2 non inter
-export ANACONDA=/soft/libraries/anaconda
-export PYTHONPATH=$ANACONDA/bin/python
+# Java
+export JAVA_HOME=/soft/compilers/java/jdk1.8.0_60
+export PATH="$JAVA_HOME/bin:$PATH"
+
+# Python
+if ((SPARKJOB_PYVERSION==2));then
+	export ANACONDA=/soft/libraries/anaconda
+	export PYTHONPATH="$ANACONDA/bin/python"
+elif ((SPARKJOB_PYVERSION==3));then
+	export ANACONDA=/soft/interpreters/python/anaconda/anaconda3
+	export PYTHONPATH="$ANACONDA/4.0.0/bin/python"
+else
+	# You are on your own.
+fi
+
+export PATH="$ANACONDA/bin:$PATH"
 export PYSPARK_PYTHON=$PYTHONPATH
-export PYSPARK_DRIVER_PYTHON=python
-export PYSPARK_DRIVER_PYTHON_OPTS=""
 
-# python 3
-#export ANACONDA=/soft/interpreters/python/anaconda/anaconda3
-#export PYTHONPATH=$ANACONDA/4.0.0/bin/python
-#export PYSPARK_PYTHON=$PYTHONPATH
-#export PYSPARK_DRIVER_PYTHON=jupyter
-#export PYSPARK_DRIVER_PYTHON_OPTS="notebook --no-browser --ip=$(hostname).cooley.pub.alcf.anl.gov --port=8002"
+if ((SPARKJOB_INTERACTIVE>0));then
+	export PYSPARK_DRIVER_PYTHON=jupyter
+	export PYSPARK_DRIVER_PYTHON_OPTS="notebook --no-browser --ip=$(hostname).cooley.pub.alcf.anl.gov --port=8002"
+fi
