@@ -9,7 +9,12 @@ declare -r version='SPARK JOB  v1.0.0'
 declare -r usage="$version"'
 
 Usage:
-	submit-spark.sh [options] [<pyscript> [<pyscript options>]]
+	submit-spark.sh [options] [JOBFILE [arguments ...]]
+
+JOBFILE (optional):
+	script.py			pyspark scripts
+	bin.jar			java binaries
+	scripts			other executable scripts
 
 Required options:
 	-A PROJECT		Allocation name
@@ -18,30 +23,37 @@ Required options:
 	-q QUEUE		Queue name
 
 Optional options:
-	-w WAITTIME		Time to wait for prompt in minutes (default 30)
+	-o OUTPUTDIR	Directory for COBALT output files (default: current dir)
+	-w WAITTIME		Time to wait for prompt in minutes (default: 30)
+	-s				Enable script mode (default if JOBFILE ends not in py nor jar)
 	-I				Start an interactive ssh session
-	-p <2|3>			Python version (default 3)
+	-p <2|3>			Python version (default: 3)
 
 Example:
 	./submit-spark.sh -A datascience -t 60 -n 2 -q pubnet-debug -w 10
 	./submit-spark.sh -A datascience -t 60 -n 2 -q debug $SPARK_HOME/examples/src/main/python/pi.py 10000
+	./submit-spark.sh -A datascience -t 60 -n 2 -q debug -s SomeExe Args
 '
 
-while getopts IA:t:n:q:w:p: OPT; do
+while getopts sIA:t:n:q:w:p:o: OPT; do
 	case $OPT in
 	I)	declare -ir	interactive=1;;
+	s)	declare -ir	scriptMode=1;;
 	A)	declare -r	allocation="$OPTARG";;
 	t)	declare -r	time="$OPTARG";;
 	n)	declare -r	nodes="$OPTARG";;
 	q)	declare -r	queue="$OPTARG";;
 	w)	declare -ir	waittime=$((OPTARG*60));;
 	p)	declare -ir	pyversion=$OPTARG;;
+	o)	declare -r	outputdir="$OPTARG";;
 	?)	echo "$usage"; exit 1;;
 	esac
 done
 
 [[ -z ${waittime+X} ]] && declare -ir waittime=$((30*60))
 [[ -z ${pyversion+X} ]] && declare -ir pyversion=3
+[[ -z ${scriptMode+X} ]] && declare -ir scriptMode=0
+[[ -z ${outputdir+X} ]] && declare -r outputdir=.
 
 if [[ -z ${allocation+X} || -z ${time+X} || -z ${nodes+X} || -z ${queue+X} ]];then
 	echo "$usage"
@@ -73,20 +85,32 @@ else
 	echo "Submitting an interactive job and wait for at most $waittime sec."
 fi
 
-[[ -d $SCRIPTS_DIR/work ]] || mkdir "$SCRIPTS_DIR/work"
+if [[ ! -d $outputdir ]];then
+	if ! mkdir "$outputdir";then
+		echo "Cannot create directory: $outputdir"
+		exit 1
+	fi
+fi
+
+cd "$outputdir"
+declare -r SPARKJOB_OUTPUTDIR="$(pwd)"
 
 declare -i JOBID=0
 mysubmit() {
 	# Options to pass to qsub
-	local -ar opt=(
+	local -a opt=(
 		-n $nodes -t $time -A $allocation -q $queue
 		--env "SPARKJOB_SCRIPTS_DIR=$SCRIPTS_DIR"
 		--env "SPARKJOB_PYVERSION=$pyversion"
 		--env "SPARKJOB_INTERACTIVE=$interactive"
-		-O "$SCRIPTS_DIR/work/\$jobid"
+		--env "SPARKJOB_SCRIPTMODE=$scriptMode"
+		--env "SPARKJOB_OUTPUTDIR=$SPARKJOB_OUTPUTDIR"
+		-O "$SPARKJOB_OUTPUTDIR/\$jobid"
 		"$SCRIPTS_DIR/start-spark.sh"
-		"${scripts[@]}"
 	)
+	if ((${#scripts[@]}>0));then
+		opt+=("${scripts[@]}")
+	fi
 	JOBID=$(qsub "${opt[@]}")
 	if ((JOBID > 0));then
 		echo "# Submitted"
@@ -101,8 +125,8 @@ if ((interactive>0));then
 	cleanup(){ ((JOBID>0)) && qdel $JOBID; } 
 	trap cleanup 0
 	mysubmit
-	declare -r envs="$SCRIPTS_DIR/work/$JOBID/envs"
-	declare -r slaves="$SCRIPTS_DIR/work/$JOBID/conf/slaves"
+	declare -r envs="$SPARKJOB_OUTPUTDIR/$JOBID/envs"
+	declare -r slaves="$SPARKJOB_OUTPUTDIR/$JOBID/conf/slaves"
 	declare -i mywait=10 count=0
 	echo "Waiting for Spark to launch..."
 	for ((count=0;count<waittime;count+=mywait));do

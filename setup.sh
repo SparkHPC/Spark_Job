@@ -8,7 +8,7 @@ if [[ -z ${SPARKJOB_WORKING_DIR+X} ]];then
 		echo "Error: SPARKJOB_JOBID required for setup.sh"
 		exit 1
 	else
-		declare SPARKJOB_WORKING_DIR="$SPARKJOB_SCRIPTS_DIR/work/$SPARKJOB_JOBID"
+		declare SPARKJOB_WORKING_DIR="$SPARKJOB_OUTPUTDIR/$SPARKJOB_JOBID"
 	fi
 fi
 export SPARKJOB_WORKING_DIR

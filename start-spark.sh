@@ -10,8 +10,10 @@ export SPARKJOB_JOBID=$COBALT_JOBID    # Change it for other job system
 export SPARKJOB_SCRIPTS_DIR
 [[ -z ${SPARKJOB_PYVERSION+X} ]] && declare -i SPARKJOB_PYVERSION=3
 export SPARKJOB_PYVERSION
+
+# Envs that passed to us only for this script
 [[ -z ${SPARKJOB_INTERACTIVE+X} ]] && declare -i SPARKJOB_INTERACTIVE=0
-export SPARKJOB_INTERACTIVE
+[[ -z ${SPARKJOB_SCRIPTMODE+X} ]] && declare -i SPARKJOB_SCRIPTMODE=0
 
 source "$SPARKJOB_SCRIPTS_DIR/setup.sh"
 
@@ -32,7 +34,6 @@ ssh(){	# Intercept ssh call to pass more envs.  Requires spark using bash.
 		"SPARKJOB_SCRIPTS_DIR='$SPARKJOB_SCRIPTS_DIR'" \; \
 		"SPARKJOB_WORKING_DIR='$SPARKJOB_WORKING_DIR'" \; \
 		"SPARKJOB_PYVERSION='$SPARKJOB_PYVERSION'" \; \
-		"SPARKJOB_INTERACTIVE='$SPARKJOB_INTERACTIVE'" \; \
 		source "'$SPARKJOB_SCRIPTS_DIR/setup.sh'" \; \
 		"${cs[@]}"
 	local -ir st=$?
@@ -51,11 +52,21 @@ cp "$COBALT_NODEFILE" "$SPARK_CONF_DIR/slaves"
 
 $SPARK_HOME/sbin/start-all.sh
 
-if (($#>0));then	# For non-interative pyspark jobs
+if (($#>0));then	# We have jobs to submit
 	source "$SPARKJOB_SCRIPTS_DIR/setup.sh"
-	export PYSPARK_DRIVER_PYTHON="$PYSPARK_PYTHON"
-	export PYSPARK_DRIVER_PYTHON_OPTS=""
-	"$SPARK_HOME/bin/spark-submit" --master $SPARK_MASTER_URI "$@"
+	if ((SPARKJOB_SCRIPTMODE==0));then
+		if [[ $1 =~ \.py$ ]];then
+			export PYSPARK_DRIVER_PYTHON="$PYSPARK_PYTHON"
+			export PYSPARK_DRIVER_PYTHON_OPTS=""
+			"$SPARK_HOME/bin/spark-submit" --master $SPARK_MASTER_URI "$@"
+		elif [[ $1 =~ \.jar$ ]];then
+			"$SPARK_HOME/bin/spark-submit" --master $SPARK_MASTER_URI "$@"
+		else
+			"$@"
+		fi
+	else
+		"$@"
+	fi
 fi
 
 if ((SPARKJOB_INTERACTIVE>0));then	# Keep interactive jobs running
