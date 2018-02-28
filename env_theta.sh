@@ -15,6 +15,8 @@ elif ((SPARKJOB_PYVERSION==3));then
 	module load intelpython35
 fi	# else you are on your own.
 
+export PYSPARK_PYTHON="$(which python)"
+
 if ((SPARKJOB_INTERACTIVE>0));then
 	echo "Remember to set PYSPARK_DRIVER_PYTHON and PYSPARK_DRIVER_PYTHON_OPTS,"
 	echo "if you want to run jupyter."
