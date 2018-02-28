@@ -2,8 +2,8 @@
 set -u
 
 # Set the directory containing our scripts if unset.
-# SCRIPTS_DIR is passed to the job via qsub.
-[[ -z ${SCRIPTS_DIR+X} ]] && declare -r SCRIPTS_DIR="$(cd $(dirname "$0")&&pwd)"
+[[ -z ${SPARKJOB_SCRIPTS_DIR+X} ]] && \
+	declare SPARKJOB_SCRIPTS_DIR="$(cd $(dirname "$0")&&pwd)"
 
 declare -r version='SPARK JOB  v1.0.0'
 declare -r usage="$version"'
@@ -11,9 +11,10 @@ declare -r usage="$version"'
 Usage:
 	submit-spark.sh [options] [JOBFILE [arguments ...]]
 
-JOBFILE (optional):
+JOBFILE (optional) can be:
 	script.py			pyspark scripts
 	bin.jar			java binaries
+	run-example CLASS	run spark example CLASS
 	scripts			other executable scripts
 
 Required options:
@@ -28,6 +29,7 @@ Optional options:
 	-s				Enable script mode
 	-I				Start an interactive ssh session
 	-p <2|3>			Python version (default: 3)
+	-h				Print this help message
 
 Example:
 	./submit-spark.sh -A datascience -t 60 -n 2 -q pubnet-debug -w 10
@@ -35,7 +37,7 @@ Example:
 	./submit-spark.sh -A datascience -t 60 -n 2 -q debug -s SomeExe Args
 '
 
-while getopts sIA:t:n:q:w:p:o: OPT; do
+while getopts hsIA:t:n:q:w:p:o: OPT; do
 	case $OPT in
 	I)	declare -ir	interactive=1;;
 	s)	declare -ir	scriptMode=1;;
@@ -46,6 +48,7 @@ while getopts sIA:t:n:q:w:p:o: OPT; do
 	w)	declare -ir	waittime=$((OPTARG*60));;
 	p)	declare -ir	pyversion=$OPTARG;;
 	o)	declare -r	outputdir="$OPTARG";;
+	h)	echo "$usage"; exit 0;;
 	?)	echo "$usage"; exit 1;;
 	esac
 done
@@ -103,21 +106,24 @@ if [[ ! -d $outputdir ]];then
 fi
 
 cd "$outputdir"
-declare -r SPARKJOB_OUTPUTDIR="$(pwd)"
+declare SPARKJOB_OUTPUT_DIR="$(pwd)"
+declare SPARKJOB_PYVERSION=$pyversion
+declare SPARKJOB_INTERACTIVE=$interactive
+declare SPARKJOB_SCRIPTMODE=$scriptMode
 
-declare -i JOBID=0
+declare -i SPARKJOB_JOBID=0
 mysubmit() {
 	# Options to pass to qsub
 	local -a opt=(
 		-n $nodes -t $time -A $allocation -q $queue
 		--env "SPARKJOB_HOST=$SPARKJOB_HOST"
-		--env "SPARKJOB_SCRIPTS_DIR=$SCRIPTS_DIR"
-		--env "SPARKJOB_PYVERSION=$pyversion"
-		--env "SPARKJOB_INTERACTIVE=$interactive"
-		--env "SPARKJOB_SCRIPTMODE=$scriptMode"
-		--env "SPARKJOB_OUTPUTDIR=$SPARKJOB_OUTPUTDIR"
-		-O "$SPARKJOB_OUTPUTDIR/\$jobid"
-		"$SCRIPTS_DIR/start-spark.sh"
+		--env "SPARKJOB_SCRIPTS_DIR=$SPARKJOB_SCRIPTS_DIR"
+		--env "SPARKJOB_PYVERSION=$SPARKJOB_PYVERSION"
+		--env "SPARKJOB_INTERACTIVE=$SPARKJOB_INTERACTIVE"
+		--env "SPARKJOB_SCRIPTMODE=$SPARKJOB_SCRIPTMODE"
+		--env "SPARKJOB_OUTPUT_DIR=$SPARKJOB_OUTPUT_DIR"
+		-O "$SPARKJOB_OUTPUT_DIR/\$jobid"
+		"$SPARKJOB_SCRIPTS_DIR/start-spark.sh"
 	)
 	case $SPARKJOB_HOST in
 	theta)	opt=(--attrs 'enable_ssh=1' "${opt[@]}") ;;
@@ -125,10 +131,10 @@ mysubmit() {
 	if ((${#scripts[@]}>0));then
 		opt+=("${scripts[@]}")
 	fi
-	JOBID=$(qsub "${opt[@]}")
-	if ((JOBID > 0));then
+	SPARKJOB_JOBID=$(qsub "${opt[@]}")
+	if ((SPARKJOB_JOBID > 0));then
 		echo "# Submitted"
-		echo "JOBID=$JOBID"
+		echo "SPARKJOB_JOBID=$SPARKJOB_JOBID"
 	else
 		echo "# Submitting failed."
 		exit 1
@@ -136,37 +142,47 @@ mysubmit() {
 }
 
 if ((interactive>0));then
-	cleanup(){ ((JOBID>0)) && qdel $JOBID; } 
+	cleanup(){ ((SPARKJOB_JOBID>0)) && qdel $SPARKJOB_JOBID; } 
 	trap cleanup 0
 	mysubmit
-	declare -r envs="$SPARKJOB_OUTPUTDIR/$JOBID/envs"
-	declare -r slaves="$SPARKJOB_OUTPUTDIR/$JOBID/conf/slaves"
 	declare -i mywait=10 count=0
 	echo "Waiting for Spark to launch..."
+	source "$SPARKJOB_SCRIPTS_DIR/setup.sh"
 	for ((count=0;count<waittime;count+=mywait));do
-		[[ ! -s $envs ]] || break
+		[[ ! -s $SPARKJOB_WORKING_ENVS ]] || break
 		sleep $mywait
 	done
-	if [[ -s $envs ]];then
-		source "$envs"
-		echo "# Spark is now running (JOBID=$JOBID) on:"
-		column "$slaves" | sed 's/^/# /'
+	if [[ -s $SPARKJOB_WORKING_ENVS ]];then
+		source "$SPARKJOB_SCRIPTS_DIR/setup.sh"	# pull in spark envs
+		echo "# Spark is now running (SPARKJOB_JOBID=$SPARKJOB_JOBID) on:"
+		column "$SPARK_CONF_DIR/slaves" | sed 's/^/# /'
 		declare -p SPARK_MASTER_URI
+		declare -ar sshmaster=(ssh -o ControlMaster=no -t $MASTER_HOST)
+		declare -r runbash="exec bash --rcfile <(
+			echo SPARKJOB_JOBID=\'$SPARKJOB_JOBID\';
+			echo SPARKJOB_HOST=\'$SPARKJOB_HOST\';
+			echo SPARKJOB_SCRIPTS_DIR=\'$SPARKJOB_SCRIPTS_DIR\';
+			echo SPARKJOB_PYVERSION=\'$SPARKJOB_PYVERSION\';
+			echo SPARKJOB_INTERACTIVE=\'$SPARKJOB_INTERACTIVE\';
+			echo SPARKJOB_SCRIPTMODE=\'$SPARKJOB_SCRIPTMODE\';
+			echo SPARKJOB_OUTPUT_DIR=\'$SPARKJOB_OUTPUT_DIR\';
+			echo source ~/.bashrc;
+			echo source \'$SPARKJOB_SCRIPTS_DIR/setup.sh\')
+			-l -i"
 		echo "# Spawning bash on host: $MASTER_HOST"
-		ssh -t $MASTER_HOST \
-			"bash -lic \" \
-			export "SPARKJOB_JOBID=$JOBID"; \
-			export "SPARKJOB_HOST=$SPARKJOB_HOST"; \
-			export "SPARKJOB_SCRIPTS_DIR=$SCRIPTS_DIR"; \
-			export "SPARKJOB_PYVERSION=$pyversion"; \
-			export "SPARKJOB_INTERACTIVE=$interactive"; \
-			export "SPARKJOB_SCRIPTMODE=$scriptMode"; \
-			export "SPARKJOB_OUTPUTDIR=$SPARKJOB_OUTPUTDIR"; \
-			exec bash --rcfile <(echo ' \
-				source ~/.bashrc; \
-				source \"$SCRIPTS_DIR/setup.sh\" \
-			')\" \
-			"
+		case $SPARKJOB_HOST in
+		theta)
+			ssh -o ControlMaster=no -t thetamom$((1+RANDOM%3)) \
+				"${sshmaster[@]}" "\"$runbash\""
+			;;
+		cooley)
+			ssh -o ControlMaster=no -t thetamom$((1+RANDOM%3)) \
+				"${sshmaster[@]}" "$runbash"
+			;;
+		*)
+			echo "Unknown host: $SPARKJOB_HOST"
+			exit 1
+		esac
 	else
 		echo "Spark failed to launch within $((waittime/60)) minutes."
 	fi

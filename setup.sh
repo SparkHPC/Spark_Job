@@ -10,12 +10,14 @@ if [[ -z ${SPARKJOB_WORKING_DIR+X} ]];then
 		echo "Error: SPARKJOB_JOBID required for setup.sh"
 		exit 1
 	else
-		declare SPARKJOB_WORKING_DIR="$SPARKJOB_OUTPUTDIR/$SPARKJOB_JOBID"
+		declare SPARKJOB_WORKING_DIR="$SPARKJOB_OUTPUT_DIR/$SPARKJOB_JOBID"
 	fi
 fi
 export SPARKJOB_WORKING_DIR
 
-source "$SPARKJOB_SCRIPTS_DIR/env.sh"
+source "$SPARKJOB_SCRIPTS_DIR/env_$SPARKJOB_HOST.sh"
+[[ -s $SPARKJOB_OUTPUT_DIR/env_local.sh ]] &&
+	source "$SPARKJOB_OUTPUT_DIR/env_local.sh"
 
 # Allow SPARKJOB_WORKING_ENVS to overwrite preset env.sh
 export SPARKJOB_WORKING_ENVS="$SPARKJOB_WORKING_DIR/envs"

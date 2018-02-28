@@ -1,78 +1,65 @@
 QUICK START
 
-On a cooley login node, under your desired directory, run the following:
-	$ cp -a /soft/datascience/Cooley_Spark ./
-	$ ./Cooley_Spark/submit-spark.sh datascience 60 2 debug \
-		/soft/datascience/apache_spark/examples/src/main/python/pi.py \
-		10000
-The result output will be under directory Cooley_Spark/run.
+On a theta login node, under your desired directory, run the following:
+	$ /PATH/TO/SPARK_JOB/submit-spark.sh \
+		-A datascience -t 10 -n 2 -q debug-cache-quad \
+		run-example SparkPi
+
+On a cooley login node, use the debug queue instead:
+	$ /PATH/TO/SPARK_JOB/submit-spark.sh \
+		-A datascience -t 10 -n 2 -q debug \
+		run-example SparkPi
+
+The result output will be under the current directory.
 
 
 USER SETUP
 
-1. Git clone this repo and chang to the cloned directory.
-2. Edit file soft_env for system/soft_env controlled setup. 
-3. Edit env.sh to include any user specific setup.
-4. [Optional] Copy conf/spark-env.sh.template to conf/spark-env.sh and edit it.
+The file, env_theta.sh or env_cooley.sh, contains preset configurations
+for either machine.  To override these preset, create a file,
+env_local.sh, under your current directory, where you launch
+submit-spark.sh.  Note that the file, env_local.sh, will be sourced
+by bash mutiple times.  You can change the default output directory,
+where env_local.sh should reside, by using the `-o` option to
+submit-spark.sh.
+
+You can get more help by issuing:
+	$ /PATH/TO/SPARK_JOB/submit-spark.sh -h
 
 
-SUBMITTING JOBS
+EXAMPLES
 
-You can use the script submit-spark.sh to submit jobs on any cooley
-login nodes.
+	$ /PATH/TO/SPARK_JOB/submit-spark.sh \
+		-A datascience -t 60 -n 2 -q debug-cache-quad run-example SparkPi
+The script will submit a COBALT job using the `datascience` allocation,
+for a maximum wall clock time of 60 minutes, request 2 nodes, using
+the `debug-cache-quad` queue.  The job will run the scala example
+`SparkPi` came with the default install of apache spark.
 
-Usage:
-	Non-interactive:
-	submit-spark.sh <allocation> <time> <num_nodes> <queue> <pyscript> [args ...]
+	$ /PATH/TO/SPARK_JOB/submit-spark.sh \
+		-A datascience -t 60 -n 2 -q debug $SPARK_HOME/examples/src/main/python/pi.py 10000
+The script will submit a COBALT job using the `datascience` allocation,
+for a maximum wall clock time of 60 minutes, request 2 nodes, using
+the `debug` queue.  The job will run the pyspark example `pi.py`
+came with the default install of apache spark.
 
-	Interactive:
-	submit-spark.sh <allocation> <time> <num_nodes> <queue> <waittime/min>
+	$ /PATH/TO/SPARK_JOB/submit-spark.sh \
+		-A datascience -t 60 -n 2 -q debug -s SomeExe Args
+The script will submit a COBALT job using the `datascience` allocation,
+for a maximum wall clock time of 60 minutes, request 2 nodes, using
+the `debug` queue.  The job will run the executable `SomeExe` with
+arguments `Args` on the compute node that has the spark master
+running.  Spark related variables will populate the running
+environment.
 
-Interactive example:
-	$ ./submit-spark.sh datascience 60 2 pubnet-debug 10
+	$ /PATH/TO/SPARK_JOB/submit-spark.sh \
+		-A datascience -t 60 -n 2 -q pubnet-debug -w 10
+The script will submit a COBALT job using the `datascience` allocation,
+for a maximum wall clock time of 60 minutes, request 2 nodes, using
+the `debug` queue.  The job will drop in to a shell environment on
+the compute node of the spark master.
 
-This should start Spark on two nodes for 60 mins.  This script will
-block and wait at most 10 mins for the job to start.  The queued job
-will be killed if it fails to start in 10 mins.
 
-Use either pubnet or pubnet-debug queues to use jupyter. Once it has launched you should see something like the following:
- 
-	Submitting an interactive job and wait for at most 10 min.
-	Waiting for Spark to launch...
-	# Spark is now running (JOBID=1335159) on:
-	# cc013.cooley
-	# cc001.cooley
-	declare -x SPARK_MASTER_URI="spark://cc013.fst.alcf.anl.gov:7077"
-	# Entering host: cc013
+BUGS
 
-You will be dropped in the host cc013, and the job will be automatically
-deleted upon exiting the host.
-
-To use Jupyter notebook, launch pyspark and include a python script
-	$ $SPARK_HOME/bin/pyspark --master $SPARK_MASTER_URI --py-files analysis_utils.py
-
-This will print something like
- 
-	[I 21:07:33.532 NotebookApp] Serving notebooks from local directory: /PATH/TO/YOUR/CWD
-	[I 21:07:33.532 NotebookApp] 0 active kernels 
-	[I 21:07:33.532 NotebookApp] The Jupyter Notebook is running at: http://cc013.cooley.pub.alcf.anl.gov:8002/
-	[I 21:07:33.533 NotebookApp] Use Control-C to stop this server and shut down all kernels (twice to skip confirmation).
- 
-and you can cut and paste the url into a browser to start using a notebook.
-
-Non-interactive example:
-	$ ./submit-spark.sh datascience 60 2 debug \
-		/soft/datascience/apache_spark/examples/src/main/python/pi.py \
-		10000
-
-This should start Spark on two nodes for 60 mins, and submit the script
-pi.py to spark master with the argument 10000.  Either the default or
-the debug queue works.  This script will return immediately after qsub
-returns, and you should see something like the following:
-
-	Submitting a non-interactive job: /soft/datascience/apache_spark/examples/src/main/python/pi.py 10000
-	Submitted jobid: 1335180
-
-Once the queued job finishes, you can find the output of the python
-script toward the end of the file, run/$COBALD_JOBID.output, or in this
-case, run/1335180.output.
+Paths or environment variables containing quotes may break the scripts.
