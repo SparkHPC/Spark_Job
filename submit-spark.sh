@@ -25,7 +25,7 @@ Required options:
 Optional options:
 	-o OUTPUTDIR	Directory for COBALT output files (default: current dir)
 	-w WAITTIME		Time to wait for prompt in minutes (default: 30)
-	-s				Enable script mode (default if JOBFILE ends not in py nor jar)
+	-s				Enable script mode
 	-I				Start an interactive ssh session
 	-p <2|3>			Python version (default: 3)
 
@@ -72,7 +72,7 @@ shift $((OPTIND-1))
 declare -a scripts=()
 
 if (($#>0));then
-	if [[ -s $1 ]];then
+	if [[ -s $1 || $1 == run-example ]];then
 		[[ -z ${interactive+X} ]] && declare -ir interactive=0
 		scripts=( "$@" )
 		echo "# Submitting job: ${scripts[@]}"
@@ -83,6 +83,16 @@ if (($#>0));then
 else
 	[[ -z ${interactive+X} ]] && declare -ir interactive=1
 	echo "Submitting an interactive job and wait for at most $waittime sec."
+fi
+
+declare -r host=$(hostname)
+if [[ $host =~ ^theta ]];then
+	declare SPARKJOB_HOST=theta
+elif [[ $host =~ ^cooley ]];then
+	declare SPARKJOB_HOST=cooley
+else
+	echo "Cannot determine host type for this host: $host"
+	exit 1
 fi
 
 if [[ ! -d $outputdir ]];then
@@ -100,6 +110,7 @@ mysubmit() {
 	# Options to pass to qsub
 	local -a opt=(
 		-n $nodes -t $time -A $allocation -q $queue
+		--env "SPARKJOB_HOST=$SPARKJOB_HOST"
 		--env "SPARKJOB_SCRIPTS_DIR=$SCRIPTS_DIR"
 		--env "SPARKJOB_PYVERSION=$pyversion"
 		--env "SPARKJOB_INTERACTIVE=$interactive"
@@ -108,6 +119,9 @@ mysubmit() {
 		-O "$SPARKJOB_OUTPUTDIR/\$jobid"
 		"$SCRIPTS_DIR/start-spark.sh"
 	)
+	case $SPARKJOB_HOST in
+	theta)	opt=(--attrs 'enable_ssh=1' "${opt[@]}") ;;
+	esac
 	if ((${#scripts[@]}>0));then
 		opt+=("${scripts[@]}")
 	fi
@@ -141,7 +155,13 @@ if ((interactive>0));then
 		echo "# Spawning bash on host: $MASTER_HOST"
 		ssh -t $MASTER_HOST \
 			"bash -lic \" \
-			export SPARKJOB_JOBID=$JOBID; \
+			export "SPARKJOB_JOBID=$JOBID"; \
+			export "SPARKJOB_HOST=$SPARKJOB_HOST"; \
+			export "SPARKJOB_SCRIPTS_DIR=$SCRIPTS_DIR"; \
+			export "SPARKJOB_PYVERSION=$pyversion"; \
+			export "SPARKJOB_INTERACTIVE=$interactive"; \
+			export "SPARKJOB_SCRIPTMODE=$scriptMode"; \
+			export "SPARKJOB_OUTPUTDIR=$SPARKJOB_OUTPUTDIR"; \
 			exec bash --rcfile <(echo ' \
 				source ~/.bashrc; \
 				source \"$SCRIPTS_DIR/setup.sh\" \

@@ -1,3 +1,5 @@
+# It should be alright to source me multiple times.
+
 # Set the scripts dir if unset.
 [[ -z ${SPARKJOB_SCRIPTS_DIR+X} ]] \
 	&& declare SPARKJOB_SCRIPTS_DIR="$(cd $(dirname "$BASH_SOURCE")&&pwd)"
