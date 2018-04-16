@@ -12,12 +12,11 @@ export PATH="$JAVA_HOME/bin:$PATH"
 # Python
 if ((SPARKJOB_PYVERSION==2));then
 	export ANACONDA=/soft/libraries/anaconda
-	export PYTHONPATH="$ANACONDA/bin/python"
 elif ((SPARKJOB_PYVERSION==3));then
-	export ANACONDA=/soft/interpreters/python/anaconda/anaconda3
-	export PYTHONPATH="$ANACONDA/4.0.0/bin/python"
+	export ANACONDA=/soft/interpreters/python/anaconda/anaconda3/4.0.0
 fi	# else you are on your own.
 
+export PYTHONPATH="$ANACONDA/bin/python"
 export PATH="$ANACONDA/bin:$PATH"
 export PYSPARK_PYTHON=$PYTHONPATH
 
