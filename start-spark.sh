@@ -1,47 +1,60 @@
 #! /bin/bash
 set -u
 
-# Set the working dir (default the directory containing this script) if unset.
-[[ -z ${WORKING_DIR+X} ]] && declare -r WORKING_DIR="$(cd $(dirname "$0");pwd)"
-export WORKING_DIR
-source "$WORKING_DIR/setup.sh"
-export SPARK_SLAVES="${SPARK_CONF_DIR}/slaves.${COBALT_JOBID}"
+[[ -z ${SPARKJOB_JOBID+X} ]] &&
+	declare SPARKJOB_JOBID=$COBALT_JOBID    # Change it for other job system
+export SPARKJOB_JOBID
 
-ssh(){	# Intercept ssh call to pass more envs.  Requires spark using bash.
-	local -ar as=("$@"); local -i i
-	echo "EXE@$(hostname -f): ssh";for ((i=0;i<$#;++i));do echo "	$i: '${as[i]}'";done
-	local -a os cs
-	while [[ $1 == -* ]];do
-		os+=("$1" "$2")
-		shift 2
-	done
-	local -r h="$1";shift
-	local -ar cs=("$@")
-	/usr/bin/ssh "${os[@]}" "$h" \
-		export "WORKING_DIR='$WORKING_DIR'" \; \
-		source "'$WORKING_DIR/setup.sh'" \; \
-		"${cs[@]}"
-	local -ir st=$?
-	if ((st==0)) && [[ $h == $(hostname).* ]];then
-		[[ -d $WORKING_DIR/run ]] || mkdir -p "$WORKING_DIR/run"
-	{
-		declare -p | grep SPARK
-		echo "declare -x SPARK_MASTER_URI=${cs[${#cs[@]}-1]}"
-	} > "$WORKING_DIR/run/control.$COBALT_JOBID"
+if [[ -z ${SPARKJOB_HOST+X} ]];then
+	declare -r host=$(hostname)
+	if [[ $host =~ ^theta ]];then
+		declare SPARKJOB_HOST=theta
+	elif [[ $host =~ ^cooley ]];then
+		declare SPARKJOB_HOST=cooley
+	else
+		echo "Cannot determine host type for this host: $host"
+		exit 1
 	fi
-	return $st
-}
-export -f ssh
-
-cp "$COBALT_NODEFILE" "$SPARK_SLAVES"
-
-$SPARK_HOME/sbin/start-all.sh
-
-if (($#>0));then	# Assuming non-interative jobs
-	source "$WORKING_DIR/setup.sh" $COBALT_JOBID
-	export PYSPARK_DRIVER_PYTHON="$PYSPARK_PYTHON"
-	export PYSPARK_DRIVER_PYTHON_OPTS=""
-	"$SPARK_HOME/bin/spark-submit" --master $SPARK_MASTER_URI "$@"
-else	#keep non-interactive job running
-	while true;do sleep 5;done
 fi
+export SPARKJOB_HOST
+
+# Set the directory containing our scripts if unset.
+# SPARKJOB_SCRIPTS_DIR is passed to the job via qsub.
+[[ -z ${SPARKJOB_SCRIPTS_DIR+X} ]] &&
+	declare SPARKJOB_SCRIPTS_DIR="$(cd $(dirname "$0")&&pwd)"
+export SPARKJOB_SCRIPTS_DIR
+[[ -z ${SPARKJOB_OUTPUT_DIR+X} ]] &&
+	declare SPARKJOB_OUTPUT_DIR="$(pwd)"
+export SPARKJOB_OUTPUT_DIR
+[[ -z ${SPARKJOB_PYVERSION+X} ]] && declare -i SPARKJOB_PYVERSION=3
+export SPARKJOB_PYVERSION
+[[ -z ${SPARKJOB_INTERACTIVE+X} ]] && declare -i SPARKJOB_INTERACTIVE=0
+export SPARKJOB_INTERACTIVE
+[[ -z ${SPARKJOB_SCRIPTMODE+X} ]] && declare -i SPARKJOB_SCRIPTMODE=0
+export SPARKJOB_SCRIPTMODE
+
+source "$SPARKJOB_SCRIPTS_DIR/setup.sh"
+
+[[ -d $SPARK_WORKER_DIR ]] || mkdir -p "$SPARK_WORKER_DIR"
+[[ -d $SPARK_CONF_DIR ]] || mkdir -p "$SPARK_CONF_DIR"
+[[ -d $SPARK_LOG_DIR ]] || mkdir -p "$SPARK_LOG_DIR"
+
+case $SPARKJOB_HOST in
+theta)
+	aprun -n $COBALT_PARTSIZE -N 1 hostname | grep ^nid > "$SPARK_CONF_DIR/nodes"
+	aprun -n 1 -N 1 \
+		-e SPARKJOB_HOST="$SPARKJOB_HOST" \
+		-e SPARKJOB_SCRIPTS_DIR="$SPARKJOB_SCRIPTS_DIR" \
+		-e SPARKJOB_OUTPUT_DIR="$SPARKJOB_OUTPUT_DIR" \
+		-e SPARKJOB_WORKING_DIR="$SPARKJOB_WORKING_DIR" \
+		-e SPARKJOB_PYVERSION="$SPARKJOB_PYVERSION" \
+		-e SPARKJOB_INTERACTIVE=$SPARKJOB_INTERACTIVE \
+		-e SPARKJOB_SCRIPTMODE=$SPARKJOB_SCRIPTMODE \
+		$SPARKJOB_SCRIPTS_DIR/run-spark.sh "$@"
+	;;
+cooley)
+	cp "$COBALT_NODEFILE" "$SPARK_CONF_DIR/nodes"
+	"$SPARKJOB_SCRIPTS_DIR/run-spark.sh" "$@" ;;
+*)
+	echo "Unknow host $SPARKJOB_HOST"; exit 1 ;;
+esac
