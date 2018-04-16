@@ -12,7 +12,7 @@ Usage:
 	submit-spark.sh [options] [JOBFILE [arguments ...]]
 
 JOBFILE (optional) can be:
-	script.py			pyspark scripts
+	script.py		pyspark scripts
 	bin.jar			java binaries
 	run-example CLASS	run spark example CLASS
 	scripts			other executable scripts
@@ -20,16 +20,17 @@ JOBFILE (optional) can be:
 Required options:
 	-A PROJECT		Allocation name
 	-t WALLTIME		Max run time
-	-n NODES			Job node count
+	-n NODES		Job node count
 	-q QUEUE		Queue name
 
 Optional options:
-	-o OUTPUTDIR	Directory for COBALT output files (default: current dir)
+	-o OUTPUTDIR		Directory for COBALT output files (default: current dir)
 	-w WAITTIME		Time to wait for prompt in minutes (default: 30)
-	-s				Enable script mode
-	-I				Start an interactive ssh session
-	-p <2|3>			Python version (default: 3)
-	-h				Print this help message
+	-s			Enable script mode
+	-I			Start an interactive ssh session
+	-m			Master uses a separate node
+	-p <2|3>		Python version (default: 3)
+	-h			Print this help message
 
 Example:
 	./submit-spark.sh -A datascience -t 60 -n 2 -q pubnet-debug -w 10
@@ -37,7 +38,7 @@ Example:
 	./submit-spark.sh -A datascience -t 60 -n 2 -q debug -s SomeExe Args
 '
 
-while getopts hsIA:t:n:q:w:p:o: OPT; do
+while getopts hmsIA:t:n:q:w:p:o: OPT; do
 	case $OPT in
 	I)	declare -ir	interactive=1;;
 	s)	declare -ir	scriptMode=1;;
@@ -48,6 +49,7 @@ while getopts hsIA:t:n:q:w:p:o: OPT; do
 	w)	declare -ir	waittime=$((OPTARG*60));;
 	p)	declare -ir	pyversion=$OPTARG;;
 	o)	declare -r	outputdir="$OPTARG";;
+	m)	declare -ir	separate_master=1;;
 	h)	echo "$usage"; exit 0;;
 	?)	echo "$usage"; exit 1;;
 	esac
@@ -57,6 +59,7 @@ done
 [[ -z ${pyversion+X} ]] && declare -ir pyversion=3
 [[ -z ${scriptMode+X} ]] && declare -ir scriptMode=0
 [[ -z ${outputdir+X} ]] && declare -r outputdir=.
+[[ -z ${separate_master+X} ]] && declare -ir separate_master=0
 
 if [[ -z ${allocation+X} || -z ${time+X} || -z ${nodes+X} || -z ${queue+X} ]];then
 	echo "$usage"
@@ -110,6 +113,7 @@ declare SPARKJOB_OUTPUT_DIR="$(pwd)"
 declare SPARKJOB_PYVERSION=$pyversion
 declare SPARKJOB_INTERACTIVE=$interactive
 declare SPARKJOB_SCRIPTMODE=$scriptMode
+declare SPARKJOB_SEPARATE_MASTER=$separate_master
 
 declare -i SPARKJOB_JOBID=0
 mysubmit() {
@@ -122,6 +126,7 @@ mysubmit() {
 		--env "SPARKJOB_INTERACTIVE=$SPARKJOB_INTERACTIVE"
 		--env "SPARKJOB_SCRIPTMODE=$SPARKJOB_SCRIPTMODE"
 		--env "SPARKJOB_OUTPUT_DIR=$SPARKJOB_OUTPUT_DIR"
+		--env "SPARKJOB_SEPARATE_MASTER=$SPARKJOB_SEPARATE_MASTER"
 		-O "$SPARKJOB_OUTPUT_DIR/\$jobid"
 		"$SPARKJOB_SCRIPTS_DIR/start-spark.sh"
 	)
@@ -166,6 +171,7 @@ if ((interactive>0));then
 			echo SPARKJOB_INTERACTIVE=\'$SPARKJOB_INTERACTIVE\';
 			echo SPARKJOB_SCRIPTMODE=\'$SPARKJOB_SCRIPTMODE\';
 			echo SPARKJOB_OUTPUT_DIR=\'$SPARKJOB_OUTPUT_DIR\';
+			echo SPARKJOB_SEPARATE_MASTER=\'$SPARKJOB_SEPARATE_MASTER\';
 			echo source ~/.bashrc;
 			echo source \'$SPARKJOB_SCRIPTS_DIR/setup.sh\')
 			-l -i"

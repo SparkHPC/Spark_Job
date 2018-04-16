@@ -41,7 +41,7 @@ source "$SPARKJOB_SCRIPTS_DIR/setup.sh"
 
 case $SPARKJOB_HOST in
 theta)
-	aprun -n $COBALT_PARTSIZE -N 1 hostname | grep ^nid > "$SPARK_CONF_DIR/slaves"
+	aprun -n $COBALT_PARTSIZE -N 1 hostname | grep ^nid > "$SPARK_CONF_DIR/nodes"
 	aprun -n 1 -N 1 \
 		-e SPARKJOB_HOST="$SPARKJOB_HOST" \
 		-e SPARKJOB_SCRIPTS_DIR="$SPARKJOB_SCRIPTS_DIR" \
@@ -53,7 +53,7 @@ theta)
 		$SPARKJOB_SCRIPTS_DIR/run-spark.sh "$@"
 	;;
 cooley)
-	cp "$COBALT_NODEFILE" "$SPARK_CONF_DIR/slaves"
+	cp "$COBALT_NODEFILE" "$SPARK_CONF_DIR/nodes"
 	"$SPARKJOB_SCRIPTS_DIR/run-spark.sh" "$@" ;;
 *)
 	echo "Unknow host $SPARKJOB_HOST"; exit 1 ;;

@@ -6,9 +6,14 @@ set -u
 
 source "$SPARKJOB_SCRIPTS_DIR/setup.sh"
 
-if [[ ! -s $SPARK_CONF_DIR/slaves ]];then
-	echo "Unable to get the slave file: $SPARK_CONF_DIR/slaves"
+if [[ ! -s $SPARK_CONF_DIR/nodes ]];then
+	echo "Unable to get the nodes file: $SPARK_CONF_DIR/nodes"
 	exit 1
+fi
+if ((SPARKJOB_SEPARATE_MASTER>0));then
+	grep -v "$(hostname)" "$SPARK_CONF_DIR/nodes" > "$SPARK_CONF_DIR/slaves"
+else
+	cp -a "$SPARK_CONF_DIR/nodes" "$SPARK_CONF_DIR/slaves"
 fi
 
 ssh(){	# Intercept ssh call to pass more envs.  Requires spark using bash.
@@ -38,19 +43,23 @@ ssh(){	# Intercept ssh call to pass more envs.  Requires spark using bash.
 	#	2>>'$SPARKJOB_WORKING_DIR/ssh.$h.error'\""
 	local -ir st=$?
 	#echo "[ Hijacked ssh returned with status: $st]"
-	if ((st==0)) && [[ $h == $(hostname)* ]];then
+	((st==0)) || return $st
+	if mkdir "$SPARKJOB_WORKING_ENVS.lock">/dev/null 2>&1;then	# We use POSIX mkdir for a mutex.
 	{
 		declare -p | grep SPARK	# Get SPARK related envs.
 		echo "declare -x SPARK_MASTER_URI=${cs[${#cs[@]}-1]}"
 		echo "declare -x MASTER_HOST=$(hostname)"
 	} > "$SPARKJOB_WORKING_ENVS"
-	fi
+	fi	# We don't release the mutex here, because we only need one copy of env.
 	return $st
 }
 export -f ssh
 
 # export SPARK_SSH_FOREGROUND=yes
 $SPARK_HOME/sbin/start-all.sh
+
+# Clean up our mutex here see the use in function ssh above.
+rmdir "$SPARKJOB_WORKING_ENVS.lock"
 
 if (($#>0));then	# We have jobs to submit
 	source "$SPARKJOB_SCRIPTS_DIR/setup.sh"
