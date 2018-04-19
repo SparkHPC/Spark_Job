@@ -182,8 +182,7 @@ if ((interactive>0));then
 				"${sshmaster[@]}" "\"$runbash\""
 			;;
 		cooley)
-			ssh -o ControlMaster=no -t thetamom$((1+RANDOM%3)) \
-				"${sshmaster[@]}" "$runbash"
+			"${sshmaster[@]}" "$runbash"
 			;;
 		*)
 			echo "Unknown host: $SPARKJOB_HOST"
