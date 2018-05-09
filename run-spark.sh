@@ -35,6 +35,7 @@ ssh(){	# Intercept ssh call to pass more envs.  Requires spark using bash.
 		"${os[@]}" "$h" "bash -lc \"
 		SPARKJOB_HOST='$SPARKJOB_HOST' ; 
 		SPARKJOB_SCRIPTS_DIR='$SPARKJOB_SCRIPTS_DIR' ; 
+		SPARKJOB_OUTPUT_DIR='$SPARKJOB_OUTPUT_DIR' ; 
 		SPARKJOB_WORKING_DIR='$SPARKJOB_WORKING_DIR' ; 
 		SPARKJOB_PYVERSION='$SPARKJOB_PYVERSION' ; 
 		source '$SPARKJOB_SCRIPTS_DIR/setup.sh' ; 
