@@ -15,21 +15,21 @@ JOBFILE (optional) can be:
 	script.py		pyspark scripts
 	bin.jar			java binaries
 	run-example CLASS	run spark example CLASS
-	scripts			other executable scripts
+	scripts			other executable scripts (requires `-s`)
 
 Required options:
 	-A PROJECT		Allocation name
-	-t WALLTIME		Max run time
+	-t WALLTIME		Max run time in minutes
 	-n NODES		Job node count
 	-q QUEUE		Queue name
 
 Optional options:
 	-o OUTPUTDIR		Directory for COBALT output files (default: current dir)
-	-w WAITTIME		Time to wait for prompt in minutes (default: 30)
 	-s			Enable script mode
-	-I			Start an interactive ssh session
 	-m			Master uses a separate node
 	-p <2|3>		Python version (default: 3)
+	-I			Start an interactive ssh session
+	-w WAITTIME		Time to wait for prompt in minutes (default: 30)
 	-h			Print this help message
 
 Example:
@@ -150,9 +150,9 @@ if ((interactive>0));then
 	cleanup(){ ((SPARKJOB_JOBID>0)) && qdel $SPARKJOB_JOBID; } 
 	trap cleanup 0
 	mysubmit
-	declare -i mywait=10 count=0
-	echo "Waiting for Spark to launch..."
+	declare -i mywait=1 count=0
 	source "$SPARKJOB_SCRIPTS_DIR/setup.sh"
+	echo "Waiting for Spark to launch..."
 	for ((count=0;count<waittime;count+=mywait));do
 		[[ ! -s $SPARKJOB_WORKING_ENVS ]] || break
 		sleep $mywait
@@ -173,8 +173,8 @@ if ((interactive>0));then
 			echo SPARKJOB_OUTPUT_DIR=\'$SPARKJOB_OUTPUT_DIR\';
 			echo SPARKJOB_SEPARATE_MASTER=\'$SPARKJOB_SEPARATE_MASTER\';
 			echo source ~/.bashrc;
-			echo source \'$SPARKJOB_SCRIPTS_DIR/setup.sh\')
-			-l -i"
+			echo source \'$SPARKJOB_SCRIPTS_DIR/setup.sh\';
+			echo cd \'\$SPARKJOB_OUTPUT_DIR\'; ) -i"
 		echo "# Spawning bash on host: $MASTER_HOST"
 		case $SPARKJOB_HOST in
 		theta)

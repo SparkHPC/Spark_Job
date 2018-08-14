@@ -1,16 +1,38 @@
 QUICK START
 
-On a theta login node, under your desired directory, run the following:
-	$ /PATH/TO/SPARK_JOB/submit-spark.sh \
+On a theta login node, under your desired directory, replace
+`datascience` with your allocation, run the following:
+	$ /soft/datascience/Spark_Job/submit-spark.sh \
 		-A datascience -t 10 -n 2 -q debug-cache-quad \
 		run-example SparkPi
 
-On a cooley login node, use the debug queue instead:
-	$ /PATH/TO/SPARK_JOB/submit-spark.sh \
+On a cooley login node, under your desired directory, replace
+`datascience` with your allocation, run the following:
+	$ /soft/datascience/Cooley_Spark/submit-spark.sh \
 		-A datascience -t 10 -n 2 -q debug \
 		run-example SparkPi
 
 The result output will be under the current directory.
+
+
+SPARK JOB
+
+Spark Job is a set of scripts that interfaces with Cobalt and
+automates the job submission process so you can just use Apache
+Spark and focus on your real work.
+
+Currently the scripts are installed under the directory,
+	/soft/datascience/Spark_Job		on Theta
+or
+	/soft/datascience/Cooley_Spark		on Cooley
+In the following, we will call the installation directory,
+`/PATH/TO/SPARK_JOB`.
+
+The main user interface is the file,
+	/PATH/TO/SPARK_JOB/submit-spark.sh
+
+You can get more help by issuing:
+	$ /PATH/TO/SPARK_JOB/submit-spark.sh -h
 
 
 USER SETUP
@@ -23,11 +45,11 @@ by bash mutiple times.  You can change the default output directory,
 where env_local.sh should reside, by using the `-o` option to
 submit-spark.sh.
 
-You can get more help by issuing:
-	$ /PATH/TO/SPARK_JOB/submit-spark.sh -h
+You can find more documentation in the directory `example`, along
+with a template `env_local.sh` file.
 
 
-EXAMPLES
+EXAMPLE SUBMIT COMMANDS
 
 	$ /PATH/TO/SPARK_JOB/submit-spark.sh \
 		-A datascience -t 60 -n 2 -q debug-cache-quad run-example SparkPi

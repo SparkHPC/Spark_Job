@@ -1,0 +1,170 @@
+SPARK JOB
+
+Spark Job is a set of scripts that interfaces with Cobalt and
+automates the job submission process so you can just use Apache
+Spark and focus on your real work.
+
+
+USAGE
+
+	submit-spark.sh [options] [JOBFILE [arguments ...]]
+
+JOBFILE (optional) can be:
+	script.py		pyspark scripts
+	bin.jar			java binaries
+	run-example CLASS	run spark example CLASS
+	scripts			other executable scripts (requires `-s`)
+
+Required options:
+	-A PROJECT		Allocation name
+	-t WALLTIME		Max run time in minutes
+	-n NODES		Job node count
+	-q QUEUE		Queue name
+
+Optional options:
+	-o OUTPUTDIR		Directory for COBALT output files (default: current dir)
+	-s			Enable script mode
+	-m			Master uses a separate node
+	-p <2|3>		Python version (default: 3)
+	-I			Start an interactive ssh session
+	-w WAITTIME		Time to wait for prompt in minutes (default: 30)
+	-h			Print this help message
+
+Without specifying a `JOBFILE`, the script will submit a job via
+Cobalt, start Spark, and launch an ssh session to the master node
+in Bash, with all the environment properly set up and directory
+changed to `OUTPUTDIR`.  The Cobalt job will be deleted once you
+exit the ssh session.
+
+With a `JOBFILE` and optionally more arguments, the script will
+submit a job via Cobalt, start Spark, and pass the JOBFILE to
+`$SPARK_HOME/bin/spark-submit` automatically, unless `-s` is given
+(see below).
+
+The required options,`-A`, `-t`, `-n`, `-q`, correspond to their
+counterparts for `qsub`, and will be passed to `qsub`, see the
+manual page of `qsub` for details.
+
+The option `-o OUTPUTDIR` instructs the script to use `OUTPUTDIR`
+to save all the files.  The file `env_local.sh` under this directory
+will be read to set up environment.  By default, if not changed in
+`env_local.sh`, Cobalt will save files,
+`$COBALT_JOBID.{cobaltlog,error,output}`, under this directory.
+You can find a list of relevant environment variables in the file,
+`$COBALT_JOBID/env'.  In addition, under this `OUTPUTDIR`, Spark
+will use `$COBALT_JOBID/conf` as `SPARK_CONF_DIR`, `$COBALT_JOBID/logs`
+for logs, and `$COBALT_JOBID/workers` for Spark temporaries.
+
+The option `-s` instructs the script to run the JOBFILE as a generic
+executable scripts, within which you may call,
+	"$SPARK_HOME/bin/spark-submit" --master $SPARK_MASTER_URI YOURFILE
+to launch, YOURFILE, which is a Spark jar file or a PySpark script.
+
+The option `-m` instructs the script to avoid launch Spark executor
+processes on the master node, such that only the Spark driver runs
+on the master node.  This means that the actual number of nodes used
+by the executors is one less than the nodes requested (by `-n`).
+
+The option `-p <2|3>` sets a default python environment (Intel
+Python), either version 2 or 3.  If you pass an argument other than
+2 or 3, no default python environment will be setup.  In this case,
+you are responsible to set it up in `env_local.sh`, if you intend
+to use PySpark.
+
+The option `-I` always launchs an ssh session to the master node,
+even if you also pass a JOBFILE.  The JOBFILE will start running,
+while the ssh session is established, so that you can inspect the
+running job.  Note that the job will be deleted once you exit the
+ssh session even if the JOBFILE is still running.
+
+The option `-w WAITTIME` instructs the script, if running in
+interactive mode (no JOBFILE or with `-I`), to wait at most WAITTIME
+minutes before it quits and deletes the job.
+
+In addition to the above options, a file `env_local.sh`, if exists
+under the OUTPUTDIR (see Optional options above), will be read by
+the script, to setup environment.  The file `env_local.sh` must be
+compatible to Bash installed in the host environment (both login
+nodes and compute nodes).
+
+
+ENV VARIABLES
+
+The scripts set a few environment variables for informational
+purposes, and for controlling the behavior.
+
+Information (taken from the command line, the job scheduler, and the system):
+
+SPARKJOB_HOST="theta"
+SPARKJOB_INTERACTIVE="1"
+SPARKJOB_JOBID="242842"
+SPARKJOB_PYVERSION="3"
+SPARKJOB_SCRIPTMODE="0"
+SPARKJOB_SCRIPTS_DIR="/lus/theta-fs0/projects/datascience/xyjin/Spark_Job"
+SPARKJOB_SEPARATE_MASTER="0"
+SPARKJOB_OUTPUT_DIR="/lus/theta-fs0/projects/datascience/xyjin/Spark_Job/example"
+SPARK_MASTER_URI=spark://nid03838:7077
+MASTER_HOST=nid03838
+
+Customizable:
+
+SPARK_HOME="/soft/datascience/apache_spark"
+SPARK_CONF_DIR="/lus/theta-fs0/projects/datascience/xyjin/Spark_Job/example/242842/conf"
+PYSPARK_PYTHON="/opt/intel/python/2017.0.035/intelpython35/bin/python"
+SPARKJOB_WORKING_DIR="/lus/theta-fs0/projects/datascience/xyjin/Spark_Job/example/242842"
+SPARKJOB_WORKING_ENVS="/lus/theta-fs0/projects/datascience/xyjin/Spark_Job/example/242842/envs"
+
+The above is the environment set up when running a job under the OUTPUTDIR,
+	/projects/datascience/xyjin/Spark_Job/example
+The variable `SPARKJOB_OUTPUT_DIR` contains the directory path, and
+`SPARKJOB_WORKING_DIR` and `SPARKJOB_WORKING_ENVS` depends on
+`SPARKJOB_OUTPUT_DIR`.
+
+You can set customizable variables in `env_local.sh`.  We provided an example copy of this
+file under the `example` directory.
+
+
+PYSPARK
+
+A simple pyspark script can be submitted through Cobalt with the
+following command,
+	/soft/datascience/Spark_Job/submit-spark.sh \
+		-A datascience -t 60 -n 2 -q debug-cache-quad \
+		/soft/datascience/apache_spark/examples/src/main/python/pi.py 10000
+It will request 60 minutes (via `-t 60`) on 2 nodes (via `-n 2`)
+with the allocation `datascience` using the `debug-cache-quad`
+queue, launch Apache Spark master on one of the allocated nodes,
+start workers on both node, and start the example `pi.py` script
+with argument `10000`.
+
+You can pass `-I` for an interactive ssh session, with `-w 10` for
+waiting at most 10 minutes.  If the session fails to start with in
+the specified 10 minutes, the script will kill itself and quit.
+	/soft/datascience/Spark_Job/submit-spark.sh \
+		-A datascience -t 60 -n 2 -q debug-cache-quad -w 10 -I \
+		/soft/datascience/apache_spark/examples/src/main/python/pi.py 10000
+
+For compiled scala applications, you can replace the python script
+with the compiled `jar` file.
+
+
+SCALA INTERACTIVE
+
+Start an interactive job,
+	/soft/datascience/Spark_Job/submit-spark.sh \
+		-A datascience -t 60 -n 2 -q debug-cache-quad
+
+Launch a scala shell,
+	$SPARK_HOME/bin/spark-shell --master $SPARK_MASTER_URI
+
+Simple queries in spark,
+	sc.getExecutorMemoryStatus
+	(java.net.InetAddress.getLocalHost, Runtime.getRuntime.maxMemory)
+	sc.parallelize(1 to 10).
+		map((_, java.net.InetAddress.getLocalHost, Runtime.getRuntime.maxMemory)).
+		collect
+
+Due to the scheduler's behavior and the number of cores available,
+you may need a much larger number (`1 to 10` above) than the number
+of worker nodes for the above statement to actually run on all
+nodes.
