@@ -38,7 +38,7 @@ Example:
 	./submit-spark.sh -A datascience -t 60 -n 2 -q debug -s SomeExe Args
 '
 
-while getopts hmsIA:t:n:q:w:p:o: OPT; do
+while getopts :hmsIA:t:n:q:w:p:o: OPT; do
 	case $OPT in
 	I)	declare -ir	interactive=1;;
 	s)	declare -ir	scriptMode=1;;
@@ -51,7 +51,16 @@ while getopts hmsIA:t:n:q:w:p:o: OPT; do
 	o)	declare -r	outputdir="$OPTARG";;
 	m)	declare -ir	separate_master=1;;
 	h)	echo "$usage"; exit 0;;
-	?)	echo "$usage"; exit 1;;
+	?)
+		if [[ $OPTARG == - ]];then
+			# Assume we see a double dash `--option` that should be passed to `spark-submit`.
+			break
+		else
+			echo "submit-spark.sh: illegal option: -$OPTARG"
+			echo "$usage"
+			exit 1
+		fi
+		;;
 	esac
 done
 
@@ -78,7 +87,7 @@ shift $((OPTIND-1))
 declare -a scripts=()
 
 if (($#>0));then
-	if [[ -s $1 || $1 == run-example ]];then
+	if [[ -s $1 || $1 == run-example || $1 == --* || $1 == *:/* ]];then
 		[[ -z ${interactive+X} ]] && declare -ir interactive=0
 		scripts=( "$@" )
 		echo "# Submitting job: ${scripts[@]}"
