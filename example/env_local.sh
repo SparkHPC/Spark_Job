@@ -12,11 +12,11 @@
 # The parameters here may require tuning depending on the machine and workload.
 [[ -s $SPARK_CONF_DIR/spark-defaults.conf ]] ||
 	cat > "$SPARK_CONF_DIR/spark-defaults.conf" <<'EOF'
-spark.executor.cores        64
-spark.driver.memory        32g
-spark.executor.memory        128g
-spark.driver.extraJavaOptions        -XX:+UseParallelGC -XX:ParallelGCThreads=16
-spark.executor.extraJavaOptions        -XX:+UseParallelGC -XX:ParallelGCThreads=16
+spark.task.cpus                    4
+spark.driver.memory              32g
+spark.executor.memory           128g
+spark.driver.extraJavaOptions   -XX:+UseParallelGC -XX:ParallelGCThreads=8
+spark.executor.extraJavaOptions -XX:+UseParallelGC -XX:ParallelGCThreads=8
 EOF
 
 # You can use SPARKJOB_HOST to detect the running system.
