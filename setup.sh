@@ -9,13 +9,21 @@ if [[ -z ${SPARKJOB_WORKING_DIR+X} ]];then
 	if [[ -z ${SPARKJOB_JOBID+X} ]];then
 		echo "Error: SPARKJOB_JOBID required for setup.sh"
 		exit 1
+	elif [[ -z ${SPARKJOB_OUTPUT_DIR+X} ]];then
+		echo "Error: SPARKJOB_OUTPUT_DIR required for setup.sh"
+		exit 1
 	else
 		declare SPARKJOB_WORKING_DIR="$SPARKJOB_OUTPUT_DIR/$SPARKJOB_JOBID"
 	fi
 fi
 export SPARKJOB_WORKING_DIR
 
-source "$SPARKJOB_SCRIPTS_DIR/env_$SPARKJOB_HOST.sh"
+if [[ -z ${SPARKJOB_HOST+X} ]];then
+	echo "Error: SPARKJOB_HOST required for setup.sh"
+	exit 1
+else
+	source "$SPARKJOB_SCRIPTS_DIR/env_$SPARKJOB_HOST.sh"
+fi
 [[ -s $SPARKJOB_OUTPUT_DIR/env_local.sh ]] &&
 	source "$SPARKJOB_OUTPUT_DIR/env_local.sh"
 
