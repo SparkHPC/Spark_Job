@@ -22,11 +22,6 @@ partname=($(expand_list "$COBALT_PARTNAME"))
 
 master_id=${partname[0]}
 
-if [[ -z ${master_id+X} ]];then
-	echo 'error: must specify master node id as the first argument' >&2
-	exit 1
-fi
-
 SPARK_MASTER_HOST=$(printf 'nid%05d' $master_id)
 SPARK_USER=$LOGNAME
 
