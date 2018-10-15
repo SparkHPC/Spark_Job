@@ -1,0 +1,41 @@
+#!/bin/bash
+
+export HOSTNAME=$(hostname)
+
+sysinfo(){ echo "#### [$(date)] @$HOSTNAME $@"; }
+
+source ../../Spark_Job/setup.sh
+
+if [[ $HOSTNAME == $SPARK_MASTER_HOST ]];then
+	sysinfo "Start master"
+	"${SPARK_HOME}/sbin"/start-master.sh
+fi
+
+if [[ -z ${SPARK_MASTER_PORT+X} ]];then
+	export SPARK_MASTER_PORT=7077
+fi
+
+sleep $SPARKJOB_DELAY_SLAVE
+((rand = RANDOM % SPARKJOB_DELAY_SLAVE))
+sleep $rand
+
+if [[ $HOSTNAME != $SPARK_MASTER_HOST ]] || ((SPARKJOB_SEPARATE_MASTER==0));then
+	sysinfo "Start slave"
+	"${SPARK_HOME}/sbin"/start-slave.sh "spark://$SPARK_MASTER_HOST:$SPARK_MASTER_PORT"
+fi
+
+sleep $((SPARKJOB_DELAY_SLAVE-rand))
+
+sleep $(awk 'BEGIN{print '$SPARKJOB_DELAY_MIN'+'$SPARKJOB_DELAY_MULT'*'$COBALT_PARTSIZE';quit}')
+
+if [[ $HOSTNAME == $SPARK_MASTER_HOST ]];then
+	sysinfo "Submit spark job: $@"
+	"$SPARK_HOME/bin/spark-submit" --master "spark://$SPARK_MASTER_HOST:$SPARK_MASTER_PORT" "$@"
+	sysinfo "Finished spark job: $@"
+	touch "$SPARKJOB_RUNDIR/stopped"
+	# All spark does is sending the kill signal (see spark-daemon.sh).  Let's rely on aprun to kill them for us.
+	#"${SPARK_HOME}/sbin"/stop-slave.sh
+	#"${SPARK_HOME}/sbin"/stop-master.sh
+else
+	while [[ ! -a $SPARKJOB_RUNDIR/stopped ]];do sleep $SPARKJOB_WAIT_PERIOD; done
+fi

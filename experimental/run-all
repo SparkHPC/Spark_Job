@@ -1,0 +1,62 @@
+#!/bin/bash
+
+expand_list(){
+	local -ar args=($(echo "$@" | sed 's/,/ /g'))
+	local -r range_re='([0-9]+)-([0-9]+)'
+	# echo "# ${args[@]}" >&2
+	local num
+	local -i i a b
+	for num in "${args[@]}";do
+		# echo "# $num" >&2
+		if [[ $num =~ $range_re ]];then
+			a=${BASH_REMATCH[1]}
+			b=${BASH_REMATCH[2]}
+			seq $a $b
+		else
+			echo $num
+		fi
+	done | sort -nu
+}
+
+partname=($(expand_list "$COBALT_PARTNAME"))
+
+master_id=${partname[0]}
+
+if [[ -z ${master_id+X} ]];then
+	echo 'error: must specify master node id as the first argument' >&2
+	exit 1
+fi
+
+SPARK_MASTER_HOST=$(printf 'nid%05d' $master_id)
+SPARK_USER=$LOGNAME
+
+SPARKJOB_JOBID=$COBALT_JOBID
+
+if [[ -z ${SPARKJOB_HOST+X} ]];then SPARKJOB_HOST=theta; fi
+if [[ -z ${SPARKJOB_PYVERSION+X} ]];then SPARKJOB_PYVERSION=3; fi
+if [[ -z ${SPARKJOB_OUTPUT_DIR+X} ]];then SPARKJOB_OUTPUT_DIR=$(pwd); fi
+if [[ -z ${SPARKJOB_DELAY_SLAVE+X} ]];then SPARKJOB_DELAY_SLAVE=30; fi
+if [[ -z ${SPARKJOB_DELAY_MIN+X} ]];then SPARKJOB_DELAY_MIN=75; fi
+if [[ -z ${SPARKJOB_DELAY_MULT+X} ]];then SPARKJOB_DELAY_MULT=0.25; fi
+if [[ -z ${SPARKJOB_WAIT_PERIOD+X} ]];then SPARKJOB_WAIT_PERIOD=60; fi
+
+source ../../Spark_Job/setup.sh
+
+SPARKJOB_RUNDIR=$(mktemp -d "$SPARKJOB_WORKING_DIR/run.$SPARK_MASTER_HOST.XXX")
+
+echo "#### START-ALL $(date)"
+aprun -b -n $COBALT_PARTSIZE -N 1 -cc none \
+	-e "SPARK_MASTER_HOST=$SPARK_MASTER_HOST" \
+	-e "SPARK_USER=$SPARK_USER" \
+	-e "SPARKJOB_HOST=$SPARKJOB_HOST" \
+	-e "SPARKJOB_JOBID=$SPARKJOB_JOBID" \
+	-e "SPARKJOB_PYVERSION=$SPARKJOB_PYVERSION" \
+	-e "SPARKJOB_OUTPUT_DIR=$SPARKJOB_OUTPUT_DIR" \
+	-e "SPARKJOB_RUNDIR=$SPARKJOB_RUNDIR" \
+	-e "SPARKJOB_DELAY_SLAVE=$SPARKJOB_DELAY_SLAVE" \
+	-e "SPARKJOB_DELAY_MIN=$SPARKJOB_DELAY_MIN" \
+	-e "SPARKJOB_DELAY_MULT=$SPARKJOB_DELAY_MULT" \
+	-e "SPARKJOB_WAIT_PERIOD=$SPARKJOB_WAIT_PERIOD" \
+	./start-all "$@" &
+wait
+echo "#### FINISH-ALL $(date)"
