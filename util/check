@@ -1,0 +1,100 @@
+#!/usr/bin/env bash
+set -eu
+
+declare -r EXENAME="$(basename "$0")"
+declare -i SYSBLOCK_INDENT=0
+sysblock_begin(){ ((SYSBLOCK_INDENT+=5)); }
+sysblock_end(){ ((SYSBLOCK_INDENT-=5)); }
+sysinfo(){
+	printf "%${SYSBLOCK_INDENT}s%s\n" '' "$@"
+}
+syswarn(){
+	printf "%${SYSBLOCK_INDENT}s%s\n" '' "WARNING: $@"
+}
+sysfatal(){
+	printf "%${SYSBLOCK_INDENT}s%s\n" '' "ERROR: $EXENAME: $@" >&2
+	exit 1
+}
+
+(($# == 1)) || sysfatal "requires one argument: DIR"
+
+declare -r DIR="$1"
+declare -r LOG="$DIR/logs"
+[[ -d $LOG ]] || sysfatal "the logs directory does not exist: $LOG"
+cd "$LOG"
+
+declare -r master_log="$(echo spark-*-org.apache.spark.deploy.master.*.out)"
+[[ -e $master_log ]] || sysfatal "the master log does not exist: $master_log."
+
+declare -a workers=()
+while read;do
+	workers+=("$REPLY")
+done < <(sed -nE 's/^.*INFO.*Registering worker ([0-9.:]+) .*$/\1/p' "$master_log" | sort -n)
+
+declare -ir n_workers=${#workers[@]}
+sysinfo "Number of registered workers:	$n_workers"
+
+declare -ar worker_logs=($(echo spark-*-org.apache.spark.deploy.worker.*.out))
+declare -ir n_worker_logs=${#worker_logs[@]}
+sysinfo "Number of worker log files:	$n_worker_logs"
+
+((n_workers == n_worker_logs)) ||
+	syswarn "the number of registered workers does not match the number of worker logs."
+
+declare -a worker_log_start=()
+declare -ia worker_no_start=()
+declare -i i
+for ((i=0;i<n_worker_logs;++i));do
+	worker_log_start[i]=$(sed -nE 's/^.*INFO.*Starting Spark worker ([0-9.:]+) .*$/\1/p' "${worker_logs[i]}")
+	if [[ -z ${worker_log_start[i]} ]];then
+		worker_no_start+=($i)
+		syswarn "worker did not start in: $LOG/${worker_logs[i]}"
+	fi
+done
+
+declare -ir n_worker_start=$((n_worker_logs-${#worker_no_start[@]}))
+sysinfo "Number of started workers:	$n_worker_start"
+((n_workers == n_worker_start)) ||
+	syswarn "the number of registered workers does not match the number of started workers."
+
+# apps=(APP-NAME APP-ID ... ...)
+declare -a apps=($(sed -nE 's/^.*INFO.*Registered app (.*) with ID (.*)$/\1 \2/p' "$master_log"))
+declare -i n_apps=$((${#apps[@]} / 2))
+sysinfo "Number of apps:	$n_apps"
+
+declare -i app_n
+declare -a executors
+declare -ai n_exec_per_worker
+declare -ai launched_executors
+declare -a launched_executor_workers
+for ((app_n=0;app_n<n_apps;++app_n));do
+	app_id="${apps[1+2*app_n]}"
+	sysinfo "App:	$app_id"
+	sysblock_begin
+	while read EXEC WORKER;do
+		launched_executors+=($EXEC)
+		launched_executor_workers+=($WORKER)
+	done < <(sed -nE 's|^.*INFO.*Launching executor '"$app_id"'/([0-9]+) on worker (.*)$|\1 \2|p' "$master_log")
+	n_exec=0
+	n_exec_per_worker=()
+	for ((i=0;i<n_workers;++i));do
+		worker="$(echo "${workers[i]}" | sed 's,:,-,')"
+		executors[i]=''
+		for ((j=0;j<${#launched_executor_workers[@]};++j));do
+			if [[ ${launched_executor_workers[j]} =~ $worker ]];then
+				executors[i]="${executors[i]} ${launched_executors[j]}"
+			fi
+		done
+		n_exec_per_worker[i]=$(echo ${executors[i]}|wc -w)
+		((n_exec+=${n_exec_per_worker[i]}))
+	done
+	sysinfo "Number of launched executors: $n_exec"
+	((n_exec == n_workers)) ||
+		syswarn "the number of launched executors does not match the number of registered workers."
+	for ((i=0;i<n_workers;++i));do
+		if ((n_exec_per_worker[i]!=1));then
+			syswarn "the worker ${workers[i]} has ${n_exec_per_worker[i]} executors ${executors[i]}"
+		fi
+	done
+	sysblock_end
+done
