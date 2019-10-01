@@ -28,6 +28,9 @@ ssh(){	# Intercept ssh call to pass more envs.  Requires spark using bash.
 	done
 	local -r h="$1";shift
 	local -ar cs=("$@")
+	local -i sleep_time=$(awk 'BEGIN{print int('$SPARKJOB_DELAY_BASE'+'$SPARKJOB_DELAY_MULT'*'$COBALT_PARTSIZE');quit}')
+	local -i rand=$((RANDOM % sleep_time))
+	sleep $((sleep_time+rand))
 	#echo "Saving ssh output to $SPARKJOB_WORKING_DIR/ssh.$h.output"
 	#echo "Saving ssh error to $SPARKJOB_WORKING_DIR/ssh.$h.error"
 	# ControlMaster has issues with compute nodes
@@ -54,6 +57,7 @@ ssh(){	# Intercept ssh call to pass more envs.  Requires spark using bash.
 			echo "declare -x MASTER_HOST=$(hostname)"
 		} > "$SPARKJOB_WORKING_ENVS"
 	) 9>"$SPARKJOB_WORKING_ENVS.lock"
+	sleep $((sleep_time-rand))
 	return $st
 }
 export -f ssh

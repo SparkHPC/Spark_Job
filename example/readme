@@ -113,12 +113,17 @@ SPARK_CONF_DIR="/lus/theta-fs0/projects/datascience/xyjin/Spark_Job/example/2428
 PYSPARK_PYTHON="/opt/intel/python/2017.0.035/intelpython35/bin/python"
 SPARKJOB_WORKING_DIR="/lus/theta-fs0/projects/datascience/xyjin/Spark_Job/example/242842"
 SPARKJOB_WORKING_ENVS="/lus/theta-fs0/projects/datascience/xyjin/Spark_Job/example/242842/envs"
+SPARKJOB_DELAY_BASE=15
+SPARKJOB_DELAY_MULT=0.125
 
 The above is the environment set up when running a job under the OUTPUTDIR,
 	/projects/datascience/xyjin/Spark_Job/example
 The variable `SPARKJOB_OUTPUT_DIR` contains the directory path, and
 `SPARKJOB_WORKING_DIR` and `SPARKJOB_WORKING_ENVS` depends on
 `SPARKJOB_OUTPUT_DIR`.
+
+`SPARKJOB_DELAY_BASE` and `SPARKJOB_DELAY_MULT` controls how much time in seconds we wait
+until starting the Spark slave processes.  Please check the source file for detailed usage.
 
 You can set customizable variables in `env_local.sh`.  We provided an example copy of this
 file under the `example` directory.
