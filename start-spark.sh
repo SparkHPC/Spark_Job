@@ -46,7 +46,7 @@ source "$SPARKJOB_SCRIPTS_DIR/setup.sh"
 case $SPARKJOB_HOST in
 theta)
 	aprun -n $COBALT_PARTSIZE -N 1 hostname | grep ^nid > "$SPARK_CONF_DIR/nodes"
-	aprun -n 1 -N 1 \
+	aprun -n 1 -N 1 -cc none -b \
 		-e SPARKJOB_HOST="$SPARKJOB_HOST" \
 		-e SPARKJOB_SCRIPTS_DIR="$SPARKJOB_SCRIPTS_DIR" \
 		-e SPARKJOB_OUTPUT_DIR="$SPARKJOB_OUTPUT_DIR" \
