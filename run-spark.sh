@@ -45,13 +45,15 @@ ssh(){	# Intercept ssh call to pass more envs.  Requires spark using bash.
 	local -ir st=$?
 	#echo "[ Hijacked ssh returned with status: $st]"
 	((st==0)) || return $st
-	if mkdir "$SPARKJOB_WORKING_ENVS.lock">/dev/null 2>&1;then	# We use POSIX mkdir for a mutex.
-	{
-		declare -p | grep SPARK	# Get SPARK related envs.
-		echo "declare -x SPARK_MASTER_URI=${cs[${#cs[@]}-1]}"
-		echo "declare -x MASTER_HOST=$(hostname)"
-	} > "$SPARKJOB_WORKING_ENVS"
-	fi	# We don't release the mutex here, because we only need one copy of env.
+	(
+		flock -n 9 || exit	# We only need one process to save the envs.
+		[[ -s $SPARKJOB_WORKING_ENVS ]] && exit	# And only save it once.
+		{
+			declare -p | grep SPARK	# Get SPARK related envs.
+			echo "declare -x SPARK_MASTER_URI=${cs[${#cs[@]}-1]}"
+			echo "declare -x MASTER_HOST=$(hostname)"
+		} > "$SPARKJOB_WORKING_ENVS"
+	) 9>"$SPARKJOB_WORKING_ENVS.lock"
 	return $st
 }
 export -f ssh
@@ -60,7 +62,7 @@ export -f ssh
 $SPARK_HOME/sbin/start-all.sh
 
 # Clean up our mutex here see the use in function ssh above.
-rmdir "$SPARKJOB_WORKING_ENVS.lock"
+rm -f "$SPARKJOB_WORKING_ENVS.lock"
 
 if (($#>0));then	# We have jobs to submit
 	source "$SPARKJOB_SCRIPTS_DIR/setup.sh"
