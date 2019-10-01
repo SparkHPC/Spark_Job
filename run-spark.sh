@@ -65,6 +65,13 @@ export -f ssh
 # export SPARK_SSH_FOREGROUND=yes
 $SPARK_HOME/sbin/start-all.sh
 
+# The error check in spark-daemon.sh is bad.
+echo '##'
+echo '# $SPARK_HOME/sbin/spark-daemon.sh might have printed messages: "failed to launch: ..."'
+echo '# It may indicate that the java processes took longer to start than expected by the script.'
+echo '# You may ignore that if the log files printed in those messages appear to be fine.'
+echo '##'
+
 # Clean up our mutex here see the use in function ssh above.
 rm -f "$SPARKJOB_WORKING_ENVS.lock"
 
