@@ -5,7 +5,7 @@ set -u
 [[ -z ${SPARKJOB_SCRIPTS_DIR+X} ]] && \
 	declare SPARKJOB_SCRIPTS_DIR="$(cd $(dirname "$0")&&pwd)"
 
-declare -r version='SPARK JOB  v1.0.2'
+declare -r version='SPARK JOB  v1.1.0'
 declare -r usage="$version"'
 
 Usage:
