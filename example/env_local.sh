@@ -21,8 +21,8 @@ EOF
 
 # You can use SPARKJOB_HOST to detect the running system.
 if [[ $SPARKJOB_HOST == theta ]];then
-	module rm intelpython35
-	module load miniconda-3.6/conda-4.4.10
+	module rm intelpython36
+	module load miniconda-3
 	export PYSPARK_PYTHON="$(which python)"
 fi
 

@@ -12,7 +12,7 @@ module load java
 if ((SPARKJOB_PYVERSION==2));then
 	module load intelpython27
 elif ((SPARKJOB_PYVERSION==3));then
-	module load intelpython35
+	module load intelpython36
 fi	# else you are on your own.
 
 export PYSPARK_PYTHON="$(which python)"

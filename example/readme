@@ -110,7 +110,7 @@ Customizable:
 
 SPARK_HOME="/soft/datascience/apache_spark"
 SPARK_CONF_DIR="/lus/theta-fs0/projects/datascience/xyjin/Spark_Job/example/242842/conf"
-PYSPARK_PYTHON="/opt/intel/python/2017.0.035/intelpython35/bin/python"
+PYSPARK_PYTHON="/soft/interpreters/python/3.6/intel/2019.3.075/bin/python"
 SPARKJOB_WORKING_DIR="/lus/theta-fs0/projects/datascience/xyjin/Spark_Job/example/242842"
 SPARKJOB_WORKING_ENVS="/lus/theta-fs0/projects/datascience/xyjin/Spark_Job/example/242842/envs"
 SPARKJOB_DELAY_BASE=15
